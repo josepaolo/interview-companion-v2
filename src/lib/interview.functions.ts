@@ -125,9 +125,15 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
     });
     if (ie) throw new Error(ie.message);
 
-    const updates: Record<string, unknown> = { current_question_index: nextIndex };
-    if (ended) { updates.status = "completed"; updates.completed_at = new Date().toISOString(); }
-    await sb.from("sessions").update(updates).eq("id", session.id);
+    if (ended) {
+      await sb.from("sessions").update({
+        current_question_index: nextIndex,
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      }).eq("id", session.id);
+    } else {
+      await sb.from("sessions").update({ current_question_index: nextIndex }).eq("id", session.id);
+    }
 
     return { text, ended, question_index: nextIndex };
   });
