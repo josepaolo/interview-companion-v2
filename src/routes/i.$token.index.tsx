@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/i/$token")({
+export const Route = createFileRoute("/i/$token/")({
   ssr: false,
   head: () => ({ meta: [{ title: "Research interview — Interview Companion" }] }),
   component: ParticipantIntro,

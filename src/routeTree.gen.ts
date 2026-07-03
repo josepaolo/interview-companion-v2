@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ITokenRouteImport } from './routes/i.$token'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as ITokenIndexRouteImport } from './routes/i.$token.index'
 import { Route as ITokenChatRouteImport } from './routes/i.$token.chat'
 import { Route as AuthenticatedStudiesIdRouteImport } from './routes/_authenticated/studies.$id'
 import { Route as AuthenticatedStudiesIdResponsesRouteImport } from './routes/_authenticated/studies.$id.responses'
@@ -42,6 +43,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ITokenIndexRoute = ITokenIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ITokenRoute,
 } as any)
 const ITokenChatRoute = ITokenChatRouteImport.update({
   id: '/chat',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/i/$token': typeof ITokenRouteWithChildren
   '/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
   '/i/$token/chat': typeof ITokenChatRoute
+  '/i/$token/': typeof ITokenIndexRoute
   '/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
   '/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
@@ -80,9 +87,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/i/$token': typeof ITokenRouteWithChildren
   '/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
   '/i/$token/chat': typeof ITokenChatRoute
+  '/i/$token': typeof ITokenIndexRoute
   '/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
   '/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
@@ -95,6 +102,7 @@ export interface FileRoutesById {
   '/i/$token': typeof ITokenRouteWithChildren
   '/_authenticated/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
   '/i/$token/chat': typeof ITokenChatRoute
+  '/i/$token/': typeof ITokenIndexRoute
   '/_authenticated/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
   '/_authenticated/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
@@ -107,6 +115,7 @@ export interface FileRouteTypes {
     | '/i/$token'
     | '/studies/$id'
     | '/i/$token/chat'
+    | '/i/$token/'
     | '/studies/$id/responses'
     | '/studies/$id/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
@@ -114,9 +123,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
-    | '/i/$token'
     | '/studies/$id'
     | '/i/$token/chat'
+    | '/i/$token'
     | '/studies/$id/responses'
     | '/studies/$id/sessions/$sessionId'
   id:
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/i/$token'
     | '/_authenticated/studies/$id'
     | '/i/$token/chat'
+    | '/i/$token/'
     | '/_authenticated/studies/$id/responses'
     | '/_authenticated/studies/$id/sessions/$sessionId'
   fileRoutesById: FileRoutesById
@@ -175,6 +185,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/i/$token/': {
+      id: '/i/$token/'
+      path: '/'
+      fullPath: '/i/$token/'
+      preLoaderRoute: typeof ITokenIndexRouteImport
+      parentRoute: typeof ITokenRoute
     }
     '/i/$token/chat': {
       id: '/i/$token/chat'
@@ -239,10 +256,12 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface ITokenRouteChildren {
   ITokenChatRoute: typeof ITokenChatRoute
+  ITokenIndexRoute: typeof ITokenIndexRoute
 }
 
 const ITokenRouteChildren: ITokenRouteChildren = {
   ITokenChatRoute: ITokenChatRoute,
+  ITokenIndexRoute: ITokenIndexRoute,
 }
 
 const ITokenRouteWithChildren =
@@ -257,3 +276,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
