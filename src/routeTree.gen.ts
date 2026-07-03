@@ -14,6 +14,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedStudiesIdRouteImport } from './routes/_authenticated/studies.$id'
+import { Route as AuthenticatedStudiesIdResponsesRouteImport } from './routes/_authenticated/studies.$id.responses'
+import { Route as AuthenticatedStudiesIdSessionsSessionIdRouteImport } from './routes/_authenticated/studies.$id.sessions.$sessionId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -39,18 +41,34 @@ const AuthenticatedStudiesIdRoute = AuthenticatedStudiesIdRouteImport.update({
   path: '/studies/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedStudiesIdResponsesRoute =
+  AuthenticatedStudiesIdResponsesRouteImport.update({
+    id: '/responses',
+    path: '/responses',
+    getParentRoute: () => AuthenticatedStudiesIdRoute,
+  } as any)
+const AuthenticatedStudiesIdSessionsSessionIdRoute =
+  AuthenticatedStudiesIdSessionsSessionIdRouteImport.update({
+    id: '/sessions/$sessionId',
+    path: '/sessions/$sessionId',
+    getParentRoute: () => AuthenticatedStudiesIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/studies/$id': typeof AuthenticatedStudiesIdRoute
+  '/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
+  '/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
+  '/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/studies/$id': typeof AuthenticatedStudiesIdRoute
+  '/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
+  '/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
+  '/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -58,13 +76,27 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/studies/$id': typeof AuthenticatedStudiesIdRoute
+  '/_authenticated/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
+  '/_authenticated/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
+  '/_authenticated/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/studies/$id'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/studies/$id'
+    | '/studies/$id/responses'
+    | '/studies/$id/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/studies/$id'
+  to:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/studies/$id'
+    | '/studies/$id/responses'
+    | '/studies/$id/sessions/$sessionId'
   id:
     | '__root__'
     | '/'
@@ -72,6 +104,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/_authenticated/studies/$id'
+    | '/_authenticated/studies/$id/responses'
+    | '/_authenticated/studies/$id/sessions/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -117,17 +151,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudiesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/studies/$id/responses': {
+      id: '/_authenticated/studies/$id/responses'
+      path: '/responses'
+      fullPath: '/studies/$id/responses'
+      preLoaderRoute: typeof AuthenticatedStudiesIdResponsesRouteImport
+      parentRoute: typeof AuthenticatedStudiesIdRoute
+    }
+    '/_authenticated/studies/$id/sessions/$sessionId': {
+      id: '/_authenticated/studies/$id/sessions/$sessionId'
+      path: '/sessions/$sessionId'
+      fullPath: '/studies/$id/sessions/$sessionId'
+      preLoaderRoute: typeof AuthenticatedStudiesIdSessionsSessionIdRouteImport
+      parentRoute: typeof AuthenticatedStudiesIdRoute
+    }
   }
 }
 
+interface AuthenticatedStudiesIdRouteChildren {
+  AuthenticatedStudiesIdResponsesRoute: typeof AuthenticatedStudiesIdResponsesRoute
+  AuthenticatedStudiesIdSessionsSessionIdRoute: typeof AuthenticatedStudiesIdSessionsSessionIdRoute
+}
+
+const AuthenticatedStudiesIdRouteChildren: AuthenticatedStudiesIdRouteChildren =
+  {
+    AuthenticatedStudiesIdResponsesRoute: AuthenticatedStudiesIdResponsesRoute,
+    AuthenticatedStudiesIdSessionsSessionIdRoute:
+      AuthenticatedStudiesIdSessionsSessionIdRoute,
+  }
+
+const AuthenticatedStudiesIdRouteWithChildren =
+  AuthenticatedStudiesIdRoute._addFileChildren(
+    AuthenticatedStudiesIdRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedStudiesIdRoute: typeof AuthenticatedStudiesIdRoute
+  AuthenticatedStudiesIdRoute: typeof AuthenticatedStudiesIdRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedStudiesIdRoute: AuthenticatedStudiesIdRoute,
+  AuthenticatedStudiesIdRoute: AuthenticatedStudiesIdRouteWithChildren,
 }
 
 const AuthenticatedRouteRouteWithChildren =
