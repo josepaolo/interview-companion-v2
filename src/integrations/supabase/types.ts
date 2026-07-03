@@ -14,13 +14,211 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      messages: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          id: string
+          question_index: number | null
+          role: string
+          session_id: string
+          text: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          question_index?: number | null
+          role: string
+          session_id: string
+          text?: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          question_index?: number | null
+          role?: string
+          session_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          completed_at: string | null
+          consent_given: boolean
+          consent_text_snapshot: string | null
+          current_question_index: number
+          id: string
+          mode: string
+          participant_email: string | null
+          participant_name: string | null
+          started_at: string
+          status: string
+          study_id: string
+          updated_at: string
+          withdrawn: boolean
+        }
+        Insert: {
+          completed_at?: string | null
+          consent_given?: boolean
+          consent_text_snapshot?: string | null
+          current_question_index?: number
+          id?: string
+          mode?: string
+          participant_email?: string | null
+          participant_name?: string | null
+          started_at?: string
+          status?: string
+          study_id: string
+          updated_at?: string
+          withdrawn?: boolean
+        }
+        Update: {
+          completed_at?: string | null
+          consent_given?: boolean
+          consent_text_snapshot?: string | null
+          current_question_index?: number
+          id?: string
+          mode?: string
+          participant_email?: string | null
+          participant_name?: string | null
+          started_at?: string
+          status?: string
+          study_id?: string
+          updated_at?: string
+          withdrawn?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studies: {
+        Row: {
+          allow_withdrawal: boolean
+          collect_identity: boolean
+          consent_enabled: boolean
+          consent_text: string
+          created_at: string
+          data_use_notice: boolean
+          description: string | null
+          id: string
+          interview_guide: string | null
+          max_duration_minutes: number
+          max_questions: number
+          owner_id: string
+          participant_modes: string[]
+          persona_background: string | null
+          persona_name: string
+          persona_tone: string
+          research_questions: string | null
+          share_active: boolean
+          share_token: string
+          status: string
+          structure_type: string
+          target_sample_size: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          allow_withdrawal?: boolean
+          collect_identity?: boolean
+          consent_enabled?: boolean
+          consent_text?: string
+          created_at?: string
+          data_use_notice?: boolean
+          description?: string | null
+          id?: string
+          interview_guide?: string | null
+          max_duration_minutes?: number
+          max_questions?: number
+          owner_id: string
+          participant_modes?: string[]
+          persona_background?: string | null
+          persona_name?: string
+          persona_tone?: string
+          research_questions?: string | null
+          share_active?: boolean
+          share_token?: string
+          status?: string
+          structure_type?: string
+          target_sample_size?: number
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          allow_withdrawal?: boolean
+          collect_identity?: boolean
+          consent_enabled?: boolean
+          consent_text?: string
+          created_at?: string
+          data_use_notice?: boolean
+          description?: string | null
+          id?: string
+          interview_guide?: string | null
+          max_duration_minutes?: number
+          max_questions?: number
+          owner_id?: string
+          participant_modes?: string[]
+          persona_background?: string | null
+          persona_name?: string
+          persona_tone?: string
+          research_questions?: string | null
+          share_active?: boolean
+          share_token?: string
+          status?: string
+          structure_type?: string
+          target_sample_size?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      study_is_open: { Args: { _study_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
