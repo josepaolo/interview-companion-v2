@@ -16,7 +16,7 @@ import { Route as ITokenRouteImport } from './routes/i.$token'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as ITokenIndexRouteImport } from './routes/i.$token.index'
 import { Route as ITokenChatRouteImport } from './routes/i.$token.chat'
-import { Route as AuthenticatedStudiesIdRouteImport } from './routes/_authenticated/studies.$id'
+import { Route as AuthenticatedStudiesIdIndexRouteImport } from './routes/_authenticated/studies.$id.index'
 import { Route as AuthenticatedStudiesIdResponsesRouteImport } from './routes/_authenticated/studies.$id.responses'
 import { Route as AuthenticatedStudiesIdSessionsSessionIdRouteImport } from './routes/_authenticated/studies.$id.sessions.$sessionId'
 
@@ -54,22 +54,23 @@ const ITokenChatRoute = ITokenChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => ITokenRoute,
 } as any)
-const AuthenticatedStudiesIdRoute = AuthenticatedStudiesIdRouteImport.update({
-  id: '/studies/$id',
-  path: '/studies/$id',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedStudiesIdIndexRoute =
+  AuthenticatedStudiesIdIndexRouteImport.update({
+    id: '/studies/$id/',
+    path: '/studies/$id/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedStudiesIdResponsesRoute =
   AuthenticatedStudiesIdResponsesRouteImport.update({
-    id: '/responses',
-    path: '/responses',
-    getParentRoute: () => AuthenticatedStudiesIdRoute,
+    id: '/studies/$id/responses',
+    path: '/studies/$id/responses',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedStudiesIdSessionsSessionIdRoute =
   AuthenticatedStudiesIdSessionsSessionIdRouteImport.update({
-    id: '/sessions/$sessionId',
-    path: '/sessions/$sessionId',
-    getParentRoute: () => AuthenticatedStudiesIdRoute,
+    id: '/studies/$id/sessions/$sessionId',
+    path: '/studies/$id/sessions/$sessionId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -77,20 +78,20 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/i/$token': typeof ITokenRouteWithChildren
-  '/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
   '/i/$token/chat': typeof ITokenChatRoute
   '/i/$token/': typeof ITokenIndexRoute
   '/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
+  '/studies/$id/': typeof AuthenticatedStudiesIdIndexRoute
   '/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
   '/i/$token/chat': typeof ITokenChatRoute
   '/i/$token': typeof ITokenIndexRoute
   '/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
+  '/studies/$id': typeof AuthenticatedStudiesIdIndexRoute
   '/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
 export interface FileRoutesById {
@@ -100,10 +101,10 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/i/$token': typeof ITokenRouteWithChildren
-  '/_authenticated/studies/$id': typeof AuthenticatedStudiesIdRouteWithChildren
   '/i/$token/chat': typeof ITokenChatRoute
   '/i/$token/': typeof ITokenIndexRoute
   '/_authenticated/studies/$id/responses': typeof AuthenticatedStudiesIdResponsesRoute
+  '/_authenticated/studies/$id/': typeof AuthenticatedStudiesIdIndexRoute
   '/_authenticated/studies/$id/sessions/$sessionId': typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
 export interface FileRouteTypes {
@@ -113,20 +114,20 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/i/$token'
-    | '/studies/$id'
     | '/i/$token/chat'
     | '/i/$token/'
     | '/studies/$id/responses'
+    | '/studies/$id/'
     | '/studies/$id/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/dashboard'
-    | '/studies/$id'
     | '/i/$token/chat'
     | '/i/$token'
     | '/studies/$id/responses'
+    | '/studies/$id'
     | '/studies/$id/sessions/$sessionId'
   id:
     | '__root__'
@@ -135,10 +136,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/i/$token'
-    | '/_authenticated/studies/$id'
     | '/i/$token/chat'
     | '/i/$token/'
     | '/_authenticated/studies/$id/responses'
+    | '/_authenticated/studies/$id/'
     | '/_authenticated/studies/$id/sessions/$sessionId'
   fileRoutesById: FileRoutesById
 }
@@ -200,55 +201,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ITokenChatRouteImport
       parentRoute: typeof ITokenRoute
     }
-    '/_authenticated/studies/$id': {
-      id: '/_authenticated/studies/$id'
+    '/_authenticated/studies/$id/': {
+      id: '/_authenticated/studies/$id/'
       path: '/studies/$id'
-      fullPath: '/studies/$id'
-      preLoaderRoute: typeof AuthenticatedStudiesIdRouteImport
+      fullPath: '/studies/$id/'
+      preLoaderRoute: typeof AuthenticatedStudiesIdIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/studies/$id/responses': {
       id: '/_authenticated/studies/$id/responses'
-      path: '/responses'
+      path: '/studies/$id/responses'
       fullPath: '/studies/$id/responses'
       preLoaderRoute: typeof AuthenticatedStudiesIdResponsesRouteImport
-      parentRoute: typeof AuthenticatedStudiesIdRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/studies/$id/sessions/$sessionId': {
       id: '/_authenticated/studies/$id/sessions/$sessionId'
-      path: '/sessions/$sessionId'
+      path: '/studies/$id/sessions/$sessionId'
       fullPath: '/studies/$id/sessions/$sessionId'
       preLoaderRoute: typeof AuthenticatedStudiesIdSessionsSessionIdRouteImport
-      parentRoute: typeof AuthenticatedStudiesIdRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
-interface AuthenticatedStudiesIdRouteChildren {
-  AuthenticatedStudiesIdResponsesRoute: typeof AuthenticatedStudiesIdResponsesRoute
-  AuthenticatedStudiesIdSessionsSessionIdRoute: typeof AuthenticatedStudiesIdSessionsSessionIdRoute
-}
-
-const AuthenticatedStudiesIdRouteChildren: AuthenticatedStudiesIdRouteChildren =
-  {
-    AuthenticatedStudiesIdResponsesRoute: AuthenticatedStudiesIdResponsesRoute,
-    AuthenticatedStudiesIdSessionsSessionIdRoute:
-      AuthenticatedStudiesIdSessionsSessionIdRoute,
-  }
-
-const AuthenticatedStudiesIdRouteWithChildren =
-  AuthenticatedStudiesIdRoute._addFileChildren(
-    AuthenticatedStudiesIdRouteChildren,
-  )
-
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedStudiesIdRoute: typeof AuthenticatedStudiesIdRouteWithChildren
+  AuthenticatedStudiesIdResponsesRoute: typeof AuthenticatedStudiesIdResponsesRoute
+  AuthenticatedStudiesIdIndexRoute: typeof AuthenticatedStudiesIdIndexRoute
+  AuthenticatedStudiesIdSessionsSessionIdRoute: typeof AuthenticatedStudiesIdSessionsSessionIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedStudiesIdRoute: AuthenticatedStudiesIdRouteWithChildren,
+  AuthenticatedStudiesIdResponsesRoute: AuthenticatedStudiesIdResponsesRoute,
+  AuthenticatedStudiesIdIndexRoute: AuthenticatedStudiesIdIndexRoute,
+  AuthenticatedStudiesIdSessionsSessionIdRoute:
+    AuthenticatedStudiesIdSessionsSessionIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -276,13 +265,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

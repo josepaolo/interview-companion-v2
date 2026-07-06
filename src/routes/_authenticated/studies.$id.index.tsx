@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useRef } from "react";
 
-export const Route = createFileRoute("/_authenticated/studies/$id")({
+export const Route = createFileRoute("/_authenticated/studies/$id/")({
   component: StudyBuilder,
 });
 
