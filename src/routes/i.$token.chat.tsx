@@ -364,6 +364,19 @@ function Chat() {
     toast.success("Your responses will be removed.");
   };
 
+  const endInterview = async () => {
+    if (!confirm("End the interview now? Your answers so far will be saved.")) return;
+    try { window.speechSynthesis.cancel(); } catch { /* noop */ }
+    if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } ttsAudioRef.current = null; }
+    if (recState === "recording") stopRecording();
+    await supabase.from("sessions").update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+    }).eq("id", sessionId);
+    await qc.invalidateQueries({ queryKey: ["p-session", sessionId] });
+    toast.success("Interview ended. Thank you.");
+  };
+
   const visible = useMemo(() => (messagesQ.data ?? []).filter((m) => m.role !== "system"), [messagesQ.data]);
   const askedCount = visible.filter((m) => m.role === "ai").length;
   const maxQ = studyQ.data?.max_questions ?? 10;
