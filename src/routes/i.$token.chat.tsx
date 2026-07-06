@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Send, CheckCircle2, Mic, Square, Loader2, Type, AudioLines, Radio, StopCircle } from "lucide-react";
 
-const search = z.object({ s: z.string().uuid() });
+const search = z.object({ s: z.string().uuid(), t: z.string().uuid() });
 
 export const Route = createFileRoute("/i/$token/chat")({
   ssr: false,
