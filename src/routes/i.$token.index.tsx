@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { participantClient } from "@/lib/participant-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,21 +48,28 @@ function ParticipantIntro() {
       if (!studyQ.data) throw new Error("Study unavailable");
       const study = studyQ.data;
       if (study.consent_enabled && !consent) throw new Error("Please agree to the consent statement.");
-      const { data, error } = await supabase.from("sessions").insert({
+      // Generate the access token client-side and send it as the header on
+      // this insert, so RLS lets PostgREST return the newly created row.
+      const accessToken = crypto.randomUUID();
+      const sb = participantClient(accessToken);
+      const { data, error } = await sb.from("sessions").insert({
         study_id: study.id,
         mode,
+        access_token: accessToken,
         participant_name: study.collect_identity ? name || null : null,
         participant_email: study.collect_identity ? email || null : null,
         consent_given: study.consent_enabled ? consent : true,
         consent_text_snapshot: study.consent_enabled ? study.consent_text : null,
       }).select("id, access_token").single();
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       return { id: data.id as string, token: data.access_token as string };
     },
     onSuccess: ({ id, token }) => {
       navigate({ to: "/i/$token/chat", params: { token }, search: { s: id, t: token } });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not start interview"),
+    onError: (e) => toast.error("Could not start interview", {
+      description: e instanceof Error ? e.message : "Unknown error",
+    }),
   });
 
   if (studyQ.isLoading) return <CenteredMessage title="Loading…" />;
