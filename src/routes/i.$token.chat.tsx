@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Send, CheckCircle2, Mic, Square, Loader2, Type, AudioLines, Radio, StopCircle } from "lucide-react";
+import type { SurveyItem } from "@/routes/_authenticated/studies.$id";
 
 const search = z.object({ s: z.string().uuid(), t: z.string().uuid() });
 
