@@ -433,6 +433,9 @@ function Chat() {
             {studyQ.data?.allow_withdrawal && (
               <Button variant="ghost" size="sm" onClick={withdraw}>Withdraw</Button>
             )}
+            <Button variant="outline" size="sm" onClick={endInterview}>
+              <StopCircle className="mr-1 h-3.5 w-3.5" /> End interview
+            </Button>
           </div>
         </div>
         {showModeSwitcher && (
