@@ -91,12 +91,15 @@ function Chat() {
 
   const allowedModes = (studyQ.data?.participant_modes ?? ["text"]) as UIMode[];
   const [mode, setMode] = useState<UIMode>("text");
+  const modeInitedRef = useRef(false);
   useEffect(() => {
-    // Initialise mode from session mode when it arrives
+    if (modeInitedRef.current) return;
+    if (!studyQ.data) return;
     const sm = (sessionQ.data?.mode as UIMode | undefined) ?? "text";
     if (allowedModes.includes(sm)) setMode(sm);
     else if (allowedModes.length > 0) setMode(allowedModes[0]);
-  }, [sessionQ.data?.mode, studyQ.data?.participant_modes]);
+    modeInitedRef.current = true;
+  }, [sessionQ.data?.mode, studyQ.data, allowedModes]);
 
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -405,6 +408,24 @@ function Chat() {
   const structuredWidget = inferredItem && inferredItem.kind === "survey" && inferredItem.question_type && inferredItem.question_type !== "open"
     ? inferredItem
     : null;
+
+  // Auto-switch mode in hybrid studies:
+  //   survey items → text (or audio) — participant types / uses mic
+  //   probe items and closing question → voice (spoken back and forth)
+  const currentItemKind: "survey" | "probe" | null = isHybrid && lastAIIdx > 0
+    ? (lastAIIdx <= surveyItems.length ? (surveyItems[lastAIIdx - 1]?.kind ?? "probe") : "probe")
+    : null;
+  useEffect(() => {
+    if (!isHybrid || !currentItemKind || allowedModes.length === 0) return;
+    const preference: UIMode[] = currentItemKind === "survey"
+      ? ["text", "audio", "voice"]
+      : ["voice", "audio", "text"];
+    const next = preference.find((m) => allowedModes.includes(m));
+    if (next && next !== mode) setMode(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHybrid, currentItemKind, lastAI?.id, allowedModes.join(",")]);
+
+
 
   if (ended) {
     return (

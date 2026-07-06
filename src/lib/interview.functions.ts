@@ -79,8 +79,12 @@ function buildSystemPrompt(study: StudyRow, mode: "text" | "audio" | "voice" = "
     `- Acknowledge briefly (one short sentence) before the next question when it feels natural.`,
     `- Never invent facts about the participant.`,
     `- Hard cap: no more than ${study.max_questions} interviewer questions total.`,
-    `- When you have covered the topics or reached the cap, output on a final line exactly: [END_OF_INTERVIEW]`,
+    `- Before ending, always ask ONE closing question: something like "Before we wrap up, is there anything else you'd like to share that we haven't touched on?" Wait for their answer.`,
+    `- After they respond to the closing question (or if they decline), thank them warmly in one short sentence AND on a final line output exactly: [END_OF_INTERVIEW]`,
+    `- Never output [END_OF_INTERVIEW] in the same turn as a question. It appears only in the final thank-you turn.`,
     `- Output plain conversational text. No markdown headings, no numbered lists in your reply.`,
+
+
   ].filter(Boolean).join("\n");
 }
 
@@ -116,19 +120,32 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
       const items = Array.isArray(studyRow.survey_items) ? studyRow.survey_items : [];
       if (items.length === 0) throw new Error("Hybrid survey has no items configured");
 
-      // End when all items have been asked and participant has answered the last.
-      if (askedSoFar >= items.length) {
-        const closing = "Thank you so much for your thoughtful answers — that's everything from my side. I really appreciate your time.";
+      const CLOSING_TEXT = "Before we wrap up — is there anything else you'd like to share that we haven't touched on?";
+      const FINAL_THANKS = "Thank you so much for your thoughtful answers — that's everything from my side. I really appreciate your time.";
+
+      // Sequence: items[0..n-1] → closing question (index n+1) → final thanks (index n+2, ends).
+      if (askedSoFar >= items.length + 1) {
+        const idx = askedSoFar + 1;
         await sb.from("messages").insert({
-          session_id: session.id, role: "ai", text: closing, question_index: askedSoFar + 1,
+          session_id: session.id, role: "ai", text: FINAL_THANKS, question_index: idx,
         });
         await sb.from("sessions").update({
-          current_question_index: askedSoFar + 1,
+          current_question_index: idx,
           status: "completed",
           completed_at: new Date().toISOString(),
         }).eq("id", session.id);
-        return { text: closing, ended: true, question_index: askedSoFar + 1 };
+        return { text: FINAL_THANKS, ended: true, question_index: idx };
       }
+
+      if (askedSoFar === items.length) {
+        const idx = items.length + 1;
+        await sb.from("messages").insert({
+          session_id: session.id, role: "ai", text: CLOSING_TEXT, question_index: idx,
+        });
+        await sb.from("sessions").update({ current_question_index: idx }).eq("id", session.id);
+        return { text: CLOSING_TEXT, ended: false, question_index: idx };
+      }
+
 
       const nextItem = items[askedSoFar];
       const itemIndex = askedSoFar + 1;
