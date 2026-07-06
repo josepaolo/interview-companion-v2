@@ -62,7 +62,11 @@ function StudyBuilder() {
     queryFn: async () => {
       const { data, error } = await supabase.from("studies").select("*").eq("id", id).single();
       if (error) throw error;
-      return data as Study;
+      const raw = data as unknown as Record<string, unknown>;
+      return {
+        ...(raw as unknown as Study),
+        survey_items: Array.isArray(raw.survey_items) ? (raw.survey_items as SurveyItem[]) : [],
+      } as Study;
     },
   });
 
