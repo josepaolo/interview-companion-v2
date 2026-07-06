@@ -387,6 +387,21 @@ function Chat() {
   const askedCount = visible.filter((m) => m.role === "ai").length;
   const maxQ = studyQ.data?.max_questions ?? 10;
 
+  // Active hybrid survey item, if any (used to render structured input widget)
+  const surveyItems = (studyQ.data?.survey_items as SurveyItem[] | null) ?? [];
+  const isHybrid = studyQ.data?.structure_type === "hybrid_survey" && surveyItems.length > 0;
+  const lastAI = [...visible].reverse().find((m) => m.role === "ai");
+  const lastAIIdx = lastAI?.question_index ?? 0;
+  const messagesAfterLastAI = lastAI
+    ? visible.filter((m) => new Date(m.created_at) > new Date(lastAI.created_at) && m.role === "participant").length
+    : 0;
+  const activeSurveyItem: SurveyItem | null = isHybrid && lastAI && messagesAfterLastAI === 0 && lastAIIdx > 0 && lastAIIdx <= surveyItems.length
+    ? surveyItems[lastAIIdx - 1] ?? null
+    : null;
+  const structuredWidget = activeSurveyItem && activeSurveyItem.kind === "survey" && activeSurveyItem.question_type
+    ? activeSurveyItem
+    : null;
+
   if (ended) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-6">
