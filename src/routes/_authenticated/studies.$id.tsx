@@ -147,9 +147,19 @@ function StudyBuilder() {
                   placeholder="What are the underlying research questions? One per line." rows={4} />
               </div>
               <div className="space-y-1.5">
-                <Label>Interview guide</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Interview guide</Label>
+                  <GuideUpload
+                    onLoaded={(text, append) =>
+                      patch("interview_guide", append && form.interview_guide ? `${form.interview_guide}\n\n${text}` : text)
+                    }
+                  />
+                </div>
                 <Textarea value={form.interview_guide} onChange={(e) => patch("interview_guide", e.target.value)}
-                  placeholder={"Topics or questions the AI should cover.\nExample:\n1. Warm-up: tell me about your role.\n2. Walk me through a recent challenge.\n3. How did you decide what to do?"} rows={8} />
+                  placeholder={"Topics or questions the AI should cover.\nExample:\n1. Warm-up: tell me about your role.\n2. Walk me through a recent challenge.\n3. How did you decide what to do?\n\nOr upload a .txt / .md file with your guide."} rows={8} />
+                <p className="text-xs text-muted-foreground">
+                  Upload accepts plain text (.txt, .md). For PDF or Word documents, copy the questions into a .txt file first.
+                </p>
               </div>
             </CardContent>
           </Card>
