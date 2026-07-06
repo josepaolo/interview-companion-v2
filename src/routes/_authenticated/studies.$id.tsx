@@ -387,3 +387,35 @@ function ToggleRow({ label, description, checked, onChange }: {
     </div>
   );
 }
+
+function GuideUpload({ onLoaded }: { onLoaded: (text: string, append: boolean) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 500_000) { toast.error("File too large (max 500KB)."); return; }
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".txt") && !name.endsWith(".md") && file.type && !file.type.startsWith("text/")) {
+      toast.error("Please upload a .txt or .md file.");
+      return;
+    }
+    try {
+      const text = (await file.text()).trim();
+      if (!text) { toast.error("File is empty."); return; }
+      const append = confirm("Append to existing guide? Click Cancel to replace it.");
+      onLoaded(text, append);
+      toast.success("Guide loaded — remember to Save changes.");
+    } catch {
+      toast.error("Could not read file.");
+    }
+  };
+  return (
+    <>
+      <input ref={inputRef} type="file" accept=".txt,.md,text/plain,text/markdown" className="hidden" onChange={handle} />
+      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+        <Upload className="mr-2 h-3.5 w-3.5" /> Upload file
+      </Button>
+    </>
+  );
+}
