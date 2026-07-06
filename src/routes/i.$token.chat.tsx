@@ -690,6 +690,8 @@ function StructuredAnswer({ item, disabled, onSubmit }: {
         <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onSubmit("No")}>No</Button>
       </div>
     );
+  }
+  return null;
 }
 
 // Parse inline markers in a survey item's prompt so researchers can author
