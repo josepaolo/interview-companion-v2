@@ -113,7 +113,7 @@ function Chat() {
   const askAI = useCallback(async () => {
     setThinking(true);
     try {
-      await nextTurn({ data: { session_id: sessionId, mode: modeRef.current } });
+      await nextTurn({ data: { session_id: sessionId, session_token: sessionToken, mode: modeRef.current } });
       await qc.invalidateQueries({ queryKey: ["p-messages", sessionId] });
       await qc.invalidateQueries({ queryKey: ["p-session", sessionId] });
     } catch (e) {
