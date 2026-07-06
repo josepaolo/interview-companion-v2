@@ -611,3 +611,82 @@ function VoicePanel({
     </div>
   );
 }
+
+function StructuredAnswer({ item, disabled, onSubmit }: {
+  item: SurveyItem;
+  disabled: boolean;
+  onSubmit: (text: string) => void | Promise<void>;
+}) {
+  const [multi, setMulti] = useState<Set<string>>(new Set());
+  const t = item.question_type;
+
+  if (t === "single" && item.options?.length) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {item.options.map((opt) => (
+          <Button key={opt} type="button" variant="outline" size="sm" disabled={disabled}
+            onClick={() => onSubmit(opt)}>
+            {opt}
+          </Button>
+        ))}
+      </div>
+    );
+  }
+  if (t === "multi" && item.options?.length) {
+    const toggle = (o: string) => {
+      const next = new Set(multi);
+      if (next.has(o)) next.delete(o); else next.add(o);
+      setMulti(next);
+    };
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {item.options.map((opt) => {
+          const on = multi.has(opt);
+          return (
+            <button key={opt} type="button" disabled={disabled} onClick={() => toggle(opt)}
+              className={`rounded-full border px-3 py-1 text-sm transition ${on ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}>
+              {opt}
+            </button>
+          );
+        })}
+        <Button type="button" size="sm" disabled={disabled || multi.size === 0}
+          onClick={() => { onSubmit(Array.from(multi).join(", ")); setMulti(new Set()); }}>
+          Submit selection
+        </Button>
+      </div>
+    );
+  }
+  if (t === "scale") {
+    const lo = item.scale_min ?? 1;
+    const hi = item.scale_max ?? 5;
+    const nums: number[] = [];
+    for (let i = lo; i <= hi; i++) nums.push(i);
+    return (
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
+          {nums.map((n) => (
+            <Button key={n} type="button" variant="outline" size="sm" disabled={disabled}
+              className="min-w-10" onClick={() => onSubmit(String(n))}>
+              {n}
+            </Button>
+          ))}
+        </div>
+        {(item.scale_min_label || item.scale_max_label) && (
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{item.scale_min_label}</span>
+            <span>{item.scale_max_label}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (t === "boolean") {
+    return (
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onSubmit("Yes")}>Yes</Button>
+        <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onSubmit("No")}>No</Button>
+      </div>
+    );
+  }
+  return null;
+}
