@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { participantClient } from "@/lib/participant-client";
 import { useServerFn } from "@tanstack/react-start";
 import { nextInterviewerTurn } from "@/lib/interview.functions";
 import { transcribeAudio } from "@/lib/audio.functions";
