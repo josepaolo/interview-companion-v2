@@ -116,19 +116,32 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
       const items = Array.isArray(studyRow.survey_items) ? studyRow.survey_items : [];
       if (items.length === 0) throw new Error("Hybrid survey has no items configured");
 
-      // End when all items have been asked and participant has answered the last.
-      if (askedSoFar >= items.length) {
-        const closing = "Thank you so much for your thoughtful answers — that's everything from my side. I really appreciate your time.";
+      const CLOSING_TEXT = "Before we wrap up — is there anything else you'd like to share that we haven't touched on?";
+      const FINAL_THANKS = "Thank you so much for your thoughtful answers — that's everything from my side. I really appreciate your time.";
+
+      // Sequence: items[0..n-1] → closing question (index n+1) → final thanks (index n+2, ends).
+      if (askedSoFar >= items.length + 1) {
+        const idx = askedSoFar + 1;
         await sb.from("messages").insert({
-          session_id: session.id, role: "ai", text: closing, question_index: askedSoFar + 1,
+          session_id: session.id, role: "ai", text: FINAL_THANKS, question_index: idx,
         });
         await sb.from("sessions").update({
-          current_question_index: askedSoFar + 1,
+          current_question_index: idx,
           status: "completed",
           completed_at: new Date().toISOString(),
         }).eq("id", session.id);
-        return { text: closing, ended: true, question_index: askedSoFar + 1 };
+        return { text: FINAL_THANKS, ended: true, question_index: idx };
       }
+
+      if (askedSoFar === items.length) {
+        const idx = items.length + 1;
+        await sb.from("messages").insert({
+          session_id: session.id, role: "ai", text: CLOSING_TEXT, question_index: idx,
+        });
+        await sb.from("sessions").update({ current_question_index: idx }).eq("id", session.id);
+        return { text: CLOSING_TEXT, ended: false, question_index: idx };
+      }
+
 
       const nextItem = items[askedSoFar];
       const itemIndex = askedSoFar + 1;
