@@ -77,7 +77,7 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
-    const sb = serverSupabase();
+    const sb = serverSupabase(data.session_token);
 
     const { data: sess, error: se } = await sb.from("sessions")
       .select("id, study_id, current_question_index, status")
