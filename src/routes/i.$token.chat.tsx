@@ -748,5 +748,3 @@ function inferWidgetFromPrompt(item: SurveyItem): SurveyItem {
   }
   return item;
 }
-  return null;
-}
