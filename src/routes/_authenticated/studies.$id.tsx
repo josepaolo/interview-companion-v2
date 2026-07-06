@@ -32,6 +32,16 @@ const PERSONAS = [
   { name: "Custom", tone: "", background: "" },
 ];
 
+export type SurveyItem = {
+  id: string;
+  kind: "survey" | "probe";
+  prompt: string;
+  question_type?: "open" | "single" | "multi" | "scale" | "boolean";
+  options?: string[];
+  scale_min?: number; scale_max?: number;
+  scale_min_label?: string; scale_max_label?: string;
+};
+
 type Study = {
   id: string; title: string; description: string; research_questions: string;
   interview_guide: string; structure_type: string; persona_name: string;
@@ -39,7 +49,7 @@ type Study = {
   consent_enabled: boolean; consent_text: string; collect_identity: boolean;
   data_use_notice: boolean; allow_withdrawal: boolean; max_questions: number;
   max_duration_minutes: number; target_sample_size: number; share_token: string;
-  share_active: boolean; status: string;
+  share_active: boolean; status: string; survey_items: SurveyItem[];
 };
 
 function StudyBuilder() {
