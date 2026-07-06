@@ -466,6 +466,7 @@ function Chat() {
             <VoicePanel
               recState={recState}
               thinking={thinking}
+              speaking={speaking}
               level={level}
               onStart={() => startRecording(true)}
               onStop={stopRecording}
