@@ -32,6 +32,16 @@ const PERSONAS = [
   { name: "Custom", tone: "", background: "" },
 ];
 
+export type SurveyItem = {
+  id: string;
+  kind: "survey" | "probe";
+  prompt: string;
+  question_type?: "open" | "single" | "multi" | "scale" | "boolean";
+  options?: string[];
+  scale_min?: number; scale_max?: number;
+  scale_min_label?: string; scale_max_label?: string;
+};
+
 type Study = {
   id: string; title: string; description: string; research_questions: string;
   interview_guide: string; structure_type: string; persona_name: string;
@@ -39,7 +49,7 @@ type Study = {
   consent_enabled: boolean; consent_text: string; collect_identity: boolean;
   data_use_notice: boolean; allow_withdrawal: boolean; max_questions: number;
   max_duration_minutes: number; target_sample_size: number; share_token: string;
-  share_active: boolean; status: string;
+  share_active: boolean; status: string; survey_items: SurveyItem[];
 };
 
 function StudyBuilder() {
@@ -52,7 +62,11 @@ function StudyBuilder() {
     queryFn: async () => {
       const { data, error } = await supabase.from("studies").select("*").eq("id", id).single();
       if (error) throw error;
-      return data as Study;
+      const raw = data as unknown as Record<string, unknown>;
+      return {
+        ...(raw as unknown as Study),
+        survey_items: Array.isArray(raw.survey_items) ? (raw.survey_items as SurveyItem[]) : [],
+      } as Study;
     },
   });
 
@@ -61,7 +75,7 @@ function StudyBuilder() {
 
   const save = useMutation({
     mutationFn: async (patch: Partial<Study>) => {
-      const { error } = await supabase.from("studies").update(patch).eq("id", id);
+      const { error } = await supabase.from("studies").update(patch as never).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -175,6 +189,7 @@ function StudyBuilder() {
                   { v: "structured", t: "Structured", d: "AI asks guide questions verbatim, in order." },
                   { v: "semi_structured", t: "Semi-structured", d: "AI follows the guide, adds adaptive follow-up probes." },
                   { v: "unstructured", t: "Unstructured", d: "AI explores research questions conversationally, no fixed script." },
+                  { v: "hybrid_survey", t: "Hybrid survey-interview", d: "Fixed survey questions interspersed with semi-structured AI probes, in the order you choose." },
                 ].map((o) => (
                   <label key={o.v} className="flex items-start gap-3 rounded-md border border-border p-4 hover:bg-accent/40">
                     <RadioGroupItem value={o.v} id={o.v} className="mt-1" />
@@ -187,6 +202,13 @@ function StudyBuilder() {
               </RadioGroup>
             </CardContent>
           </Card>
+
+          {form.structure_type === "hybrid_survey" && (
+            <SurveyItemsEditor
+              items={form.survey_items ?? []}
+              onChange={(items) => patch("survey_items", items)}
+            />
+          )}
 
           <Card>
             <CardHeader>
@@ -417,5 +439,123 @@ function GuideUpload({ onLoaded }: { onLoaded: (text: string, append: boolean) =
         <Upload className="mr-2 h-3.5 w-3.5" /> Upload file
       </Button>
     </>
+  );
+}
+
+function SurveyItemsEditor({ items, onChange }: { items: SurveyItem[]; onChange: (items: SurveyItem[]) => void }) {
+  const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+  const add = (kind: "survey" | "probe") => {
+    const base: SurveyItem = kind === "survey"
+      ? { id: newId(), kind, prompt: "", question_type: "open" }
+      : { id: newId(), kind, prompt: "" };
+    onChange([...items, base]);
+  };
+  const update = (idx: number, patch: Partial<SurveyItem>) =>
+    onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx));
+  const move = (idx: number, dir: -1 | 1) => {
+    const j = idx + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = items.slice();
+    [next[idx], next[j]] = [next[j], next[idx]];
+    onChange(next);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-serif">Hybrid items</CardTitle>
+        <CardDescription>
+          Order matters. <strong>Survey questions</strong> are asked verbatim; <strong>probes</strong> are semi-structured topics the AI will explore in one adaptive question.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {items.length === 0 && (
+          <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No items yet. Add a survey question or a probe to begin.
+          </p>
+        )}
+        {items.map((it, idx) => (
+          <div key={it.id} className="space-y-3 rounded-md border border-border p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Badge variant={it.kind === "survey" ? "default" : "secondary"}>
+                  {idx + 1}. {it.kind === "survey" ? "Survey" : "Probe"}
+                </Badge>
+                <Select value={it.kind} onValueChange={(v) => update(idx, { kind: v as "survey" | "probe" })}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="survey">Survey question</SelectItem>
+                    <SelectItem value="probe">Semi-structured probe</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={() => move(idx, -1)} disabled={idx === 0}>↑</Button>
+                <Button variant="ghost" size="sm" onClick={() => move(idx, 1)} disabled={idx === items.length - 1}>↓</Button>
+                <Button variant="ghost" size="sm" className="text-destructive" onClick={() => remove(idx)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <Textarea
+              rows={2}
+              value={it.prompt}
+              onChange={(e) => update(idx, { prompt: e.target.value })}
+              placeholder={it.kind === "survey"
+                ? "The exact question the AI will read out."
+                : "Topic for the AI to explore in one adaptive question (e.g. 'their motivations for switching jobs')."}
+            />
+            {it.kind === "survey" && (
+              <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Answer type</Label>
+                  <Select
+                    value={it.question_type ?? "open"}
+                    onValueChange={(v) => update(idx, { question_type: v as SurveyItem["question_type"] })}
+                  >
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open text</SelectItem>
+                      <SelectItem value="single">Single choice</SelectItem>
+                      <SelectItem value="multi">Multiple choice</SelectItem>
+                      <SelectItem value="scale">Scale</SelectItem>
+                      <SelectItem value="boolean">Yes / No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(it.question_type === "single" || it.question_type === "multi") && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Options (one per line)</Label>
+                    <Textarea
+                      rows={3}
+                      value={(it.options ?? []).join("\n")}
+                      onChange={(e) => update(idx, { options: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                      placeholder={"Strongly agree\nAgree\nNeutral\nDisagree"}
+                    />
+                  </div>
+                )}
+                {it.question_type === "scale" && (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="space-y-1"><Label className="text-xs">Min</Label>
+                      <Input type="number" value={it.scale_min ?? 1} onChange={(e) => update(idx, { scale_min: parseInt(e.target.value) || 0 })} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Max</Label>
+                      <Input type="number" value={it.scale_max ?? 5} onChange={(e) => update(idx, { scale_max: parseInt(e.target.value) || 0 })} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Min label</Label>
+                      <Input value={it.scale_min_label ?? ""} onChange={(e) => update(idx, { scale_min_label: e.target.value })} placeholder="Not at all" /></div>
+                    <div className="space-y-1"><Label className="text-xs">Max label</Label>
+                      <Input value={it.scale_max_label ?? ""} onChange={(e) => update(idx, { scale_max_label: e.target.value })} placeholder="Extremely" /></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => add("survey")}>+ Survey question</Button>
+          <Button variant="outline" size="sm" onClick={() => add("probe")}>+ Semi-structured probe</Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -158,6 +158,7 @@ export type Database = {
           share_token: string
           status: string
           structure_type: string
+          survey_items: Json
           target_sample_size: number
           title: string
           updated_at: string
@@ -184,6 +185,7 @@ export type Database = {
           share_token?: string
           status?: string
           structure_type?: string
+          survey_items?: Json
           target_sample_size?: number
           title?: string
           updated_at?: string
@@ -210,6 +212,7 @@ export type Database = {
           share_token?: string
           status?: string
           structure_type?: string
+          survey_items?: Json
           target_sample_size?: number
           title?: string
           updated_at?: string

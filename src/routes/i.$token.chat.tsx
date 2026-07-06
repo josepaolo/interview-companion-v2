@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Send, CheckCircle2, Mic, Square, Loader2, Type, AudioLines, Radio, StopCircle } from "lucide-react";
+import type { SurveyItem } from "@/routes/_authenticated/studies.$id";
 
 const search = z.object({ s: z.string().uuid(), t: z.string().uuid() });
 
@@ -70,7 +71,7 @@ function Chat() {
     enabled: !!sessionQ.data?.study_id,
     queryFn: async () => {
       const { data, error } = await supabase.from("studies")
-        .select("title, persona_name, max_questions, allow_withdrawal, participant_modes")
+        .select("title, persona_name, max_questions, allow_withdrawal, participant_modes, structure_type, survey_items")
         .eq("id", sessionQ.data!.study_id).single();
       if (error) throw error; return data;
     },
@@ -344,18 +345,20 @@ function Chat() {
     }
   }, [mode, recState, stopRecording]);
 
+  const submitAnswer = useCallback(async (text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    const { error } = await sb.from("messages").insert({
+      session_id: sessionId, role: "participant", text: t,
+    });
+    if (error) { toast.error(error.message); return; }
+    setInput("");
+    await qc.invalidateQueries({ queryKey: ["p-messages", sessionId] });
+    await askAI();
+  }, [sb, sessionId, qc, askAI]);
+
   const send = useMutation({
-    mutationFn: async () => {
-      const text = input.trim();
-      if (!text) return;
-      const { error } = await sb.from("messages").insert({
-        session_id: sessionId, role: "participant", text,
-      });
-      if (error) throw error;
-      setInput("");
-      await qc.invalidateQueries({ queryKey: ["p-messages", sessionId] });
-      await askAI();
-    },
+    mutationFn: async () => { await submitAnswer(input); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not send"),
   });
 
@@ -384,6 +387,21 @@ function Chat() {
   const visible = useMemo(() => (messagesQ.data ?? []).filter((m) => m.role !== "system"), [messagesQ.data]);
   const askedCount = visible.filter((m) => m.role === "ai").length;
   const maxQ = studyQ.data?.max_questions ?? 10;
+
+  // Active hybrid survey item, if any (used to render structured input widget)
+  const surveyItems = (studyQ.data?.survey_items as SurveyItem[] | null) ?? [];
+  const isHybrid = studyQ.data?.structure_type === "hybrid_survey" && surveyItems.length > 0;
+  const lastAI = [...visible].reverse().find((m) => m.role === "ai");
+  const lastAIIdx = lastAI?.question_index ?? 0;
+  const messagesAfterLastAI = lastAI
+    ? visible.filter((m) => new Date(m.created_at) > new Date(lastAI.created_at) && m.role === "participant").length
+    : 0;
+  const activeSurveyItem: SurveyItem | null = isHybrid && lastAI && messagesAfterLastAI === 0 && lastAIIdx > 0 && lastAIIdx <= surveyItems.length
+    ? surveyItems[lastAIIdx - 1] ?? null
+    : null;
+  const structuredWidget = activeSurveyItem && activeSurveyItem.kind === "survey" && activeSurveyItem.question_type
+    ? activeSurveyItem
+    : null;
 
   if (ended) {
     return (
@@ -492,7 +510,15 @@ function Chat() {
               onStop={stopRecording}
             />
           ) : (
-            <div className="flex items-end gap-2">
+            <div className="space-y-3">
+              {structuredWidget && (
+                <StructuredAnswer
+                  item={structuredWidget}
+                  disabled={thinking || send.isPending || recState !== "idle"}
+                  onSubmit={(text) => submitAnswer(text)}
+                />
+              )}
+              <div className="flex items-end gap-2">
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -524,6 +550,7 @@ function Chat() {
                 disabled={!input.trim() || send.isPending || thinking || recState !== "idle"} size="lg">
                 <Send className="h-4 w-4" />
               </Button>
+              </div>
             </div>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
@@ -583,4 +610,83 @@ function VoicePanel({
 
     </div>
   );
+}
+
+function StructuredAnswer({ item, disabled, onSubmit }: {
+  item: SurveyItem;
+  disabled: boolean;
+  onSubmit: (text: string) => void | Promise<void>;
+}) {
+  const [multi, setMulti] = useState<Set<string>>(new Set());
+  const t = item.question_type;
+
+  if (t === "single" && item.options?.length) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {item.options.map((opt) => (
+          <Button key={opt} type="button" variant="outline" size="sm" disabled={disabled}
+            onClick={() => onSubmit(opt)}>
+            {opt}
+          </Button>
+        ))}
+      </div>
+    );
+  }
+  if (t === "multi" && item.options?.length) {
+    const toggle = (o: string) => {
+      const next = new Set(multi);
+      if (next.has(o)) next.delete(o); else next.add(o);
+      setMulti(next);
+    };
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {item.options.map((opt) => {
+          const on = multi.has(opt);
+          return (
+            <button key={opt} type="button" disabled={disabled} onClick={() => toggle(opt)}
+              className={`rounded-full border px-3 py-1 text-sm transition ${on ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}>
+              {opt}
+            </button>
+          );
+        })}
+        <Button type="button" size="sm" disabled={disabled || multi.size === 0}
+          onClick={() => { onSubmit(Array.from(multi).join(", ")); setMulti(new Set()); }}>
+          Submit selection
+        </Button>
+      </div>
+    );
+  }
+  if (t === "scale") {
+    const lo = item.scale_min ?? 1;
+    const hi = item.scale_max ?? 5;
+    const nums: number[] = [];
+    for (let i = lo; i <= hi; i++) nums.push(i);
+    return (
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
+          {nums.map((n) => (
+            <Button key={n} type="button" variant="outline" size="sm" disabled={disabled}
+              className="min-w-10" onClick={() => onSubmit(String(n))}>
+              {n}
+            </Button>
+          ))}
+        </div>
+        {(item.scale_min_label || item.scale_max_label) && (
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{item.scale_min_label}</span>
+            <span>{item.scale_max_label}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (t === "boolean") {
+    return (
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onSubmit("Yes")}>Yes</Button>
+        <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onSubmit("No")}>No</Button>
+      </div>
+    );
+  }
+  return null;
 }

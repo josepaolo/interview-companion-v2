@@ -9,13 +9,25 @@ const Input = z.object({
   mode: z.enum(["text", "audio", "voice"]).optional(),
 });
 
+type SurveyItem = {
+  id: string;
+  kind: "survey" | "probe";
+  prompt: string;
+  question_type?: "open" | "single" | "multi" | "scale" | "boolean";
+  options?: string[];
+  scale_min?: number; scale_max?: number;
+  scale_min_label?: string; scale_max_label?: string;
+};
+
 type StudyRow = {
   id: string; title: string; description: string | null;
   research_questions: string | null; interview_guide: string | null;
   structure_type: string; persona_name: string; persona_tone: string;
   persona_background: string | null; max_questions: number;
   status: string; share_active: boolean;
+  survey_items: SurveyItem[] | null;
 };
+
 
 type MsgRow = { role: string; text: string; question_index: number | null };
 type SessRow = { id: string; study_id: string; current_question_index: number; status: string };
@@ -86,7 +98,7 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
     const session = sess as SessRow;
 
     const { data: study, error: st } = await sb.from("studies")
-      .select("id, title, description, research_questions, interview_guide, structure_type, persona_name, persona_tone, persona_background, max_questions, status, share_active")
+      .select("id, title, description, research_questions, interview_guide, structure_type, persona_name, persona_tone, persona_background, max_questions, status, share_active, survey_items")
       .eq("id", session.study_id).single();
     if (st || !study) throw new Error("Study not found");
     if (study.status !== "live" || !study.share_active) throw new Error("Study is not accepting responses");
@@ -96,19 +108,89 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
       .order("created_at", { ascending: true });
     if (me) throw new Error(me.message);
 
+    const askedSoFar = (msgs as MsgRow[]).filter((m) => m.role === "ai").length;
+    const studyRow = study as StudyRow;
+
+    // ---- Hybrid survey-interview mode ----
+    if (studyRow.structure_type === "hybrid_survey") {
+      const items = Array.isArray(studyRow.survey_items) ? studyRow.survey_items : [];
+      if (items.length === 0) throw new Error("Hybrid survey has no items configured");
+
+      // End when all items have been asked and participant has answered the last.
+      if (askedSoFar >= items.length) {
+        const closing = "Thank you so much for your thoughtful answers — that's everything from my side. I really appreciate your time.";
+        await sb.from("messages").insert({
+          session_id: session.id, role: "ai", text: closing, question_index: askedSoFar + 1,
+        });
+        await sb.from("sessions").update({
+          current_question_index: askedSoFar + 1,
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        }).eq("id", session.id);
+        return { text: closing, ended: true, question_index: askedSoFar + 1 };
+      }
+
+      const nextItem = items[askedSoFar];
+      const itemIndex = askedSoFar + 1;
+      let text = "";
+
+      if (nextItem.kind === "survey") {
+        // Ask verbatim, no LLM call. Append options hint for structured types.
+        text = renderSurveyPrompt(nextItem);
+      } else {
+        // Probe: ask ONE adaptive question exploring the topic, informed by prior transcript.
+        const history = (msgs as MsgRow[]).map((m) => ({
+          role: m.role === "ai" ? ("assistant" as const)
+              : m.role === "participant" ? ("user" as const)
+              : ("system" as const),
+          content: m.text,
+        }));
+        const sys = [
+          buildSystemPrompt(studyRow, data.mode ?? "text"),
+          `You are running a HYBRID survey-interview. The next moment in the guide is a semi-structured probe on the following topic:`,
+          `"${nextItem.prompt}"`,
+          `Ask exactly ONE open, conversational question that opens this topic. Reference the participant's earlier answers only if it feels natural. Do NOT number the question, do NOT reveal you are following a script. Do NOT end the interview; there are more items to come. Do NOT output [END_OF_INTERVIEW].`,
+        ].join("\n");
+        const messages = [
+          { role: "system" as const, content: sys },
+          ...history,
+        ];
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages }),
+        });
+        if (!res.ok) {
+          const t = await res.text().catch(() => "");
+          if (res.status === 429) throw new Error("Rate limit reached, please retry in a moment.");
+          if (res.status === 402) throw new Error("AI credits exhausted for this workspace.");
+          throw new Error(`AI gateway error ${res.status}: ${t}`);
+        }
+        const json = await res.json() as { choices?: { message?: { content?: string } }[] };
+        text = (json.choices?.[0]?.message?.content ?? "").replace(/\[END_OF_INTERVIEW\]/gi, "").trim();
+        if (!text) text = nextItem.prompt;
+      }
+
+      const { error: ie } = await sb.from("messages").insert({
+        session_id: session.id, role: "ai", text, question_index: itemIndex,
+      });
+      if (ie) throw new Error(ie.message);
+      await sb.from("sessions").update({ current_question_index: itemIndex }).eq("id", session.id);
+      return { text, ended: false, question_index: itemIndex };
+    }
+
+    // ---- Standard modes (structured / semi-structured / unstructured) ----
     const history = (msgs as MsgRow[]).map((m) => ({
       role: m.role === "ai" ? "assistant" : m.role === "participant" ? "user" : "system",
       content: m.text,
     }));
 
     const messages = [
-      { role: "system" as const, content: buildSystemPrompt(study as StudyRow, data.mode ?? "text") },
+      { role: "system" as const, content: buildSystemPrompt(studyRow, data.mode ?? "text") },
       ...history,
     ];
 
-    // If the last participant answer would push past the cap, ask the model to end.
-    const askedSoFar = (msgs as MsgRow[]).filter((m) => m.role === "ai").length;
-    if (askedSoFar >= (study as StudyRow).max_questions) {
+    if (askedSoFar >= studyRow.max_questions) {
       messages.push({
         role: "system" as const,
         content: "You have reached the maximum number of questions. Thank the participant warmly in 1-2 sentences and end with [END_OF_INTERVIEW] on its own line.",
@@ -156,3 +238,26 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
 
     return { text, ended, question_index: nextIndex };
   });
+
+function renderSurveyPrompt(item: SurveyItem): string {
+  const p = item.prompt.trim();
+  const t = item.question_type;
+  if (t === "single" && item.options?.length) {
+    return `${p}\n\nPlease choose one:\n${item.options.map((o, i) => `${i + 1}. ${o}`).join("\n")}`;
+  }
+  if (t === "multi" && item.options?.length) {
+    return `${p}\n\nSelect all that apply:\n${item.options.map((o, i) => `${i + 1}. ${o}`).join("\n")}`;
+  }
+  if (t === "scale") {
+    const lo = item.scale_min ?? 1;
+    const hi = item.scale_max ?? 5;
+    const lol = item.scale_min_label ? ` (${item.scale_min_label})` : "";
+    const hil = item.scale_max_label ? ` (${item.scale_max_label})` : "";
+    return `${p}\n\nOn a scale from ${lo}${lol} to ${hi}${hil}, what would you say?`;
+  }
+  if (t === "boolean") {
+    return `${p}\n\n(Yes or No — feel free to add a sentence of context.)`;
+  }
+  return p;
+}
+
