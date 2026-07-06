@@ -9,13 +9,25 @@ const Input = z.object({
   mode: z.enum(["text", "audio", "voice"]).optional(),
 });
 
+type SurveyItem = {
+  id: string;
+  kind: "survey" | "probe";
+  prompt: string;
+  question_type?: "open" | "single" | "multi" | "scale" | "boolean";
+  options?: string[];
+  scale_min?: number; scale_max?: number;
+  scale_min_label?: string; scale_max_label?: string;
+};
+
 type StudyRow = {
   id: string; title: string; description: string | null;
   research_questions: string | null; interview_guide: string | null;
   structure_type: string; persona_name: string; persona_tone: string;
   persona_background: string | null; max_questions: number;
   status: string; share_active: boolean;
+  survey_items: SurveyItem[] | null;
 };
+
 
 type MsgRow = { role: string; text: string; question_index: number | null };
 type SessRow = { id: string; study_id: string; current_question_index: number; status: string };
