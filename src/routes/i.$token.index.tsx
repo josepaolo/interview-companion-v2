@@ -120,7 +120,7 @@ function ParticipantIntro() {
             {study.participant_modes.length > 1 && (
               <div className="space-y-2">
                 <Label>How would you like to answer?</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {study.participant_modes.map((m) => (
                     <button key={m} type="button" onClick={() => setMode(m)}
                       className={`rounded-full border px-4 py-1.5 text-sm capitalize ${mode === m ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
@@ -128,9 +128,11 @@ function ParticipantIntro() {
                     </button>
                   ))}
                 </div>
-                {mode === "audio" && (
-                  <p className="text-xs text-muted-foreground">Audio interview flow coming soon — text works today.</p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  {mode === "text" && "Type your answers in a chat window."}
+                  {mode === "audio" && "Record your answers with the mic, or type — you can switch anytime."}
+                  {mode === "voice" && "Hands-free conversation: the interviewer speaks and listens for your reply."}
+                </p>
               </div>
             )}
 
