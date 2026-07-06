@@ -70,7 +70,7 @@ function Chat() {
     enabled: !!sessionQ.data?.study_id,
     queryFn: async () => {
       const { data, error } = await supabase.from("studies")
-        .select("title, persona_name, max_questions, allow_withdrawal, participant_modes")
+        .select("title, persona_name, max_questions, allow_withdrawal, participant_modes, structure_type, survey_items")
         .eq("id", sessionQ.data!.study_id).single();
       if (error) throw error; return data;
     },
