@@ -28,7 +28,7 @@ function Transcript() {
     queryKey: ["messages", sessionId],
     queryFn: async () => {
       const { data, error } = await supabase.from("messages")
-        .select("id, role, text, question_index, created_at")
+        .select("id, role, text, audio_url, question_index, created_at")
         .eq("session_id", sessionId).order("created_at", { ascending: true });
       if (error) throw error;
       return data as Msg[];
