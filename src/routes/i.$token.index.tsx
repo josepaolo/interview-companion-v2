@@ -48,15 +48,20 @@ function ParticipantIntro() {
       if (!studyQ.data) throw new Error("Study unavailable");
       const study = studyQ.data;
       if (study.consent_enabled && !consent) throw new Error("Please agree to the consent statement.");
-      const { data, error } = await supabase.from("sessions").insert({
+      // Generate the access token client-side and send it as the header on
+      // this insert, so RLS lets PostgREST return the newly created row.
+      const accessToken = crypto.randomUUID();
+      const sb = participantClient(accessToken);
+      const { data, error } = await sb.from("sessions").insert({
         study_id: study.id,
         mode,
+        access_token: accessToken,
         participant_name: study.collect_identity ? name || null : null,
         participant_email: study.collect_identity ? email || null : null,
         consent_given: study.consent_enabled ? consent : true,
         consent_text_snapshot: study.consent_enabled ? study.consent_text : null,
       }).select("id, access_token").single();
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       return { id: data.id as string, token: data.access_token as string };
     },
     onSuccess: ({ id, token }) => {
