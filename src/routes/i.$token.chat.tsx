@@ -399,8 +399,11 @@ function Chat() {
   const activeSurveyItem: SurveyItem | null = isHybrid && lastAI && messagesAfterLastAI === 0 && lastAIIdx > 0 && lastAIIdx <= surveyItems.length
     ? surveyItems[lastAIIdx - 1] ?? null
     : null;
-  const structuredWidget = activeSurveyItem && activeSurveyItem.kind === "survey" && activeSurveyItem.question_type
-    ? activeSurveyItem
+  // Auto-parse inline markers like [multi]/[single]/[scale 1-5]/[yes/no] from the prompt
+  // if the researcher didn't explicitly set a widget type.
+  const inferredItem = activeSurveyItem ? inferWidgetFromPrompt(activeSurveyItem) : null;
+  const structuredWidget = inferredItem && inferredItem.kind === "survey" && inferredItem.question_type && inferredItem.question_type !== "open"
+    ? inferredItem
     : null;
 
   if (ended) {
@@ -689,4 +692,59 @@ function StructuredAnswer({ item, disabled, onSubmit }: {
     );
   }
   return null;
+}
+
+// Parse inline markers in a survey item's prompt so researchers can author
+// widgets by pasting a guide. Recognises:
+//   [multi] / [single]  followed by "a · b · c" or "- a\n- b" or "a, b, c"
+//   [scale 1-5] or [scale 1-7 not at all to completely]
+//   [yes/no] or [boolean]
+// Returns a new SurveyItem with question_type/options/scale filled in.
+function inferWidgetFromPrompt(item: SurveyItem): SurveyItem {
+  if (item.kind !== "survey") return item;
+  if (item.question_type && item.question_type !== "open") return item;
+  const text = item.prompt ?? "";
+  const lower = text.toLowerCase();
+
+  const scaleMatch = lower.match(/\[scale\s+(\d+)\s*[-–to]+\s*(\d+)(?:\s+([^\]]+))?\]/);
+  if (scaleMatch) {
+    const lo = parseInt(scaleMatch[1], 10);
+    const hi = parseInt(scaleMatch[2], 10);
+    let lolab: string | undefined;
+    let hilab: string | undefined;
+    if (scaleMatch[3]) {
+      const parts = scaleMatch[3].split(/\s+to\s+/i);
+      if (parts.length === 2) { lolab = parts[0].trim(); hilab = parts[1].trim(); }
+    }
+    return { ...item, question_type: "scale", scale_min: lo, scale_max: hi, scale_min_label: lolab, scale_max_label: hilab };
+  }
+  if (/\[(yes\s*\/\s*no|boolean|bool)\]/.test(lower)) {
+    return { ...item, question_type: "boolean" };
+  }
+  const kindMatch = lower.match(/\[(multi|single|multiple|choice|checkbox|radio)\]/);
+  if (kindMatch) {
+    const isMulti = /multi|multiple|checkbox/.test(kindMatch[1]);
+    // Collect options from the segment AFTER the marker.
+    const afterIdx = text.toLowerCase().indexOf(kindMatch[0]) + kindMatch[0].length;
+    const after = text.slice(afterIdx);
+    // Take up to the next blank line or next [marker] block.
+    const stopIdx = after.search(/\n\s*\n|\n\s*\[/);
+    const block = (stopIdx === -1 ? after : after.slice(0, stopIdx)).trim();
+    let options: string[] = [];
+    if (block.includes("·")) {
+      options = block.split("·").map((s) => s.trim()).filter(Boolean);
+    } else if (/^\s*[-*]/m.test(block)) {
+      options = block.split(/\n/).map((l) => l.replace(/^\s*[-*]\s*/, "").trim()).filter(Boolean);
+    } else if (block.includes(",")) {
+      options = block.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (block.includes("\n")) {
+      options = block.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    }
+    // Sanity cap and de-dupe
+    options = Array.from(new Set(options)).slice(0, 12);
+    if (options.length >= 2) {
+      return { ...item, question_type: isMulti ? "multi" : "single", options };
+    }
+  }
+  return item;
 }
