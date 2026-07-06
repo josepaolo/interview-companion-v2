@@ -399,8 +399,11 @@ function Chat() {
   const activeSurveyItem: SurveyItem | null = isHybrid && lastAI && messagesAfterLastAI === 0 && lastAIIdx > 0 && lastAIIdx <= surveyItems.length
     ? surveyItems[lastAIIdx - 1] ?? null
     : null;
-  const structuredWidget = activeSurveyItem && activeSurveyItem.kind === "survey" && activeSurveyItem.question_type
-    ? activeSurveyItem
+  // Auto-parse inline markers like [multi]/[single]/[scale 1-5]/[yes/no] from the prompt
+  // if the researcher didn't explicitly set a widget type.
+  const inferredItem = activeSurveyItem ? inferWidgetFromPrompt(activeSurveyItem) : null;
+  const structuredWidget = inferredItem && inferredItem.kind === "survey" && inferredItem.question_type && inferredItem.question_type !== "open"
+    ? inferredItem
     : null;
 
   if (ended) {
