@@ -50,6 +50,7 @@ function Chat() {
   const qc = useQueryClient();
   const nextTurn = useServerFn(nextInterviewerTurn);
   const transcribe = useServerFn(transcribeAudio);
+  const tts = useServerFn(synthesizeSpeech);
 
   const sessionQ = useQuery({
     queryKey: ["p-session", sessionId],
