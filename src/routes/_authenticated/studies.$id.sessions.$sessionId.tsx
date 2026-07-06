@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/studies/$id/sessions/$sess
   component: Transcript,
 });
 
-type Msg = { id: string; role: string; text: string; question_index: number | null; created_at: string };
+type Msg = { id: string; role: string; text: string; audio_url: string | null; question_index: number | null; created_at: string };
 
 function Transcript() {
   const { id, sessionId } = Route.useParams();
