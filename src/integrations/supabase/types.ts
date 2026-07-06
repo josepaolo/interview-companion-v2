@@ -78,6 +78,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          access_token: string
           completed_at: string | null
           consent_given: boolean
           consent_text_snapshot: string | null
@@ -93,6 +94,7 @@ export type Database = {
           withdrawn: boolean
         }
         Insert: {
+          access_token?: string
           completed_at?: string | null
           consent_given?: boolean
           consent_text_snapshot?: string | null
@@ -108,6 +110,7 @@ export type Database = {
           withdrawn?: boolean
         }
         Update: {
+          access_token?: string
           completed_at?: string | null
           consent_given?: boolean
           consent_text_snapshot?: string | null
@@ -218,6 +221,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      session_token_header: { Args: never; Returns: string }
       study_is_open: { Args: { _study_id: string }; Returns: boolean }
     }
     Enums: {
