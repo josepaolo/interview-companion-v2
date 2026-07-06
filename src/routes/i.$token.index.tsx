@@ -67,7 +67,9 @@ function ParticipantIntro() {
     onSuccess: ({ id, token }) => {
       navigate({ to: "/i/$token/chat", params: { token }, search: { s: id, t: token } });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not start interview"),
+    onError: (e) => toast.error("Could not start interview", {
+      description: e instanceof Error ? e.message : "Unknown error",
+    }),
   });
 
   if (studyQ.isLoading) return <CenteredMessage title="Loading…" />;
