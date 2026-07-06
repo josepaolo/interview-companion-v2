@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 
 const Input = z.object({
   session_id: z.string().uuid(),
+  mode: z.enum(["text", "audio", "voice"]).optional(),
 });
 
 type StudyRow = {
@@ -26,12 +27,25 @@ function serverSupabase() {
   );
 }
 
-function buildSystemPrompt(study: StudyRow) {
+function buildSystemPrompt(study: StudyRow, mode: "text" | "audio" | "voice" = "text") {
   const structureRule = study.structure_type === "structured"
     ? "Ask the guide questions verbatim, in order, with minimal deviation. Do not add follow-ups unless the participant is unclear."
     : study.structure_type === "unstructured"
     ? "Explore the research questions conversationally. No fixed script. Follow the participant's lead."
     : "Follow the interview guide as a loose sequence. Ask adaptive follow-up probes when answers are shallow or intriguing.";
+
+  const voiceRule = mode === "voice"
+    ? [
+        `Delivery: this interview is happening OUT LOUD, spoken back and forth in real time. Write for the ear, not the page.`,
+        `- Keep each turn short: 1-2 sentences, ideally under 30 words. Never monologue.`,
+        `- Use natural spoken English: contractions, everyday words, light hedges ("hmm", "okay", "got it", "that makes sense").`,
+        `- Vary sentence rhythm. Occasionally begin with a short acknowledgement ("Interesting.", "Thanks for sharing that.") before the next question.`,
+        `- Never say numbers, bullets, headings, or "question one", "next question". Just ask.`,
+        `- No emoji, no markdown, no parentheses, no stage directions.`,
+        `- Pronounceable punctuation only: commas, periods, question marks. Avoid semicolons and em-dashes.`,
+      ].join("\n")
+    : "";
+
 
   return [
     `You are ${study.persona_name}, an AI research interviewer.`,
@@ -42,6 +56,7 @@ function buildSystemPrompt(study: StudyRow) {
     study.research_questions ? `Underlying research questions:\n${study.research_questions}` : "",
     study.interview_guide ? `Interview guide:\n${study.interview_guide}` : "",
     `Interview style: ${structureRule}`,
+    voiceRule,
     `Rules:`,
     `- Ask ONE question at a time. Keep questions short and open.`,
     `- Do not lead the participant, do not put words in their mouth.`,
@@ -83,7 +98,7 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
     }));
 
     const messages = [
-      { role: "system" as const, content: buildSystemPrompt(study as StudyRow) },
+      { role: "system" as const, content: buildSystemPrompt(study as StudyRow, data.mode ?? "text") },
       ...history,
     ];
 

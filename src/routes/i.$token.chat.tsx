@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { nextInterviewerTurn } from "@/lib/interview.functions";
 import { transcribeAudio } from "@/lib/audio.functions";
+import { synthesizeSpeech } from "@/lib/tts.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ function Chat() {
   const qc = useQueryClient();
   const nextTurn = useServerFn(nextInterviewerTurn);
   const transcribe = useServerFn(transcribeAudio);
+  const tts = useServerFn(synthesizeSpeech);
 
   const sessionQ = useQuery({
     queryKey: ["p-session", sessionId],
@@ -102,10 +104,12 @@ function Chat() {
 
   // ---- AI turn ----
   const spokenIdsRef = useRef<Set<string>>(new Set());
+  const modeRef = useRef<UIMode>("text");
+  modeRef.current = mode;
   const askAI = useCallback(async () => {
     setThinking(true);
     try {
-      await nextTurn({ data: { session_id: sessionId } });
+      await nextTurn({ data: { session_id: sessionId, mode: modeRef.current } });
       await qc.invalidateQueries({ queryKey: ["p-messages", sessionId] });
       await qc.invalidateQueries({ queryKey: ["p-session", sessionId] });
     } catch (e) {
@@ -264,30 +268,49 @@ function Chat() {
     }
   }, [recState, cleanupAudio, submitAudio, stopRecording]);
 
-  useEffect(() => () => { cleanupAudio(); try { window.speechSynthesis.cancel(); } catch { /* noop */ } }, [cleanupAudio]);
+  useEffect(() => () => { cleanupAudio(); if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } ttsAudioRef.current = null; } }, [cleanupAudio]);
 
-  // ---- Voice mode: TTS interviewer + auto-record participant ----
+  // ---- Voice mode: high-quality TTS interviewer + auto-record participant ----
   const voiceModeRef = useRef(false);
   voiceModeRef.current = mode === "voice";
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [speaking, setSpeaking] = useState(false);
 
-  const speak = useCallback((text: string): Promise<void> => {
-    return new Promise((resolve) => {
-      if (typeof window === "undefined" || !("speechSynthesis" in window) || !text) return resolve();
+  const speak = useCallback(async (text: string): Promise<void> => {
+    if (!text) return;
+    // Stop any prior playback
+    if (ttsAudioRef.current) {
+      try { ttsAudioRef.current.pause(); } catch { /* noop */ }
+      ttsAudioRef.current = null;
+    }
+    try {
+      setSpeaking(true);
+      const { audio_base64, mime } = await tts({ data: { text } });
+      const audio = new Audio(`data:${mime};base64,${audio_base64}`);
+      ttsAudioRef.current = audio;
+      await new Promise<void>((resolve) => {
+        audio.onended = () => resolve();
+        audio.onerror = () => resolve();
+        audio.play().catch(() => resolve());
+      });
+    } catch (e) {
+      // Fallback to browser synthesis if the gateway fails
       try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.0; u.pitch = 1.0;
-        const voices = window.speechSynthesis.getVoices();
-        const pref = voices.find((v) => /en(-|_)?(US|GB)/i.test(v.lang) && /female|samantha|karen|jenny|serena/i.test(v.name))
-          ?? voices.find((v) => v.lang.startsWith("en"))
-          ?? voices[0];
-        if (pref) u.voice = pref;
-        u.onend = () => resolve();
-        u.onerror = () => resolve();
-        window.speechSynthesis.speak(u);
-      } catch { resolve(); }
-    });
-  }, []);
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          await new Promise<void>((resolve) => {
+            const u = new SpeechSynthesisUtterance(text);
+            u.onend = () => resolve();
+            u.onerror = () => resolve();
+            window.speechSynthesis.speak(u);
+          });
+        }
+      } catch { /* noop */ }
+      console.warn("TTS failed", e);
+    } finally {
+      setSpeaking(false);
+      ttsAudioRef.current = null;
+    }
+  }, [tts]);
 
   // Auto-flow for voice mode: whenever a new AI message arrives, speak it, then auto-record participant answer
   useEffect(() => {
@@ -301,7 +324,7 @@ function Chat() {
     (async () => {
       await speak(last.text);
       // small delay to avoid mic capturing tail of TTS
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 300));
       if (voiceModeRef.current && !ended) {
         startRecording(true);
       }
@@ -311,7 +334,8 @@ function Chat() {
   // Stop speaking / recording when leaving voice mode
   useEffect(() => {
     if (mode !== "voice") {
-      try { window.speechSynthesis.cancel(); } catch { /* noop */ }
+      if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } ttsAudioRef.current = null; }
+      try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
       if (recState === "recording") stopRecording();
     }
   }, [mode, recState, stopRecording]);
@@ -442,6 +466,7 @@ function Chat() {
             <VoicePanel
               recState={recState}
               thinking={thinking}
+              speaking={speaking}
               level={level}
               onStart={() => startRecording(true)}
               onStop={stopRecording}
@@ -495,23 +520,24 @@ function Chat() {
 }
 
 function VoicePanel({
-  recState, thinking, level, onStart, onStop,
+  recState, thinking, speaking, level, onStart, onStop,
 }: {
   recState: "idle" | "recording" | "processing";
-  thinking: boolean; level: number;
+  thinking: boolean; speaking: boolean; level: number;
   onStart: () => void; onStop: () => void;
 }) {
   const scale = 1 + Math.min(0.6, level * 1.2);
   const active = recState === "recording";
+  const busy = thinking || speaking || recState === "processing";
   return (
     <div className="flex flex-col items-center gap-3 py-4">
       <button
         type="button"
         onClick={active ? onStop : onStart}
-        disabled={thinking || recState === "processing"}
+        disabled={busy}
         className={`relative flex h-20 w-20 items-center justify-center rounded-full border-2 transition
           ${active ? "border-destructive bg-destructive/10" : "border-primary bg-primary/10 hover:bg-primary/20"}
-          ${(thinking || recState === "processing") ? "opacity-60" : ""}`}
+          ${busy ? "opacity-60" : ""}`}
         aria-label={active ? "Stop recording" : "Start recording"}
       >
         {active && (
@@ -528,11 +554,13 @@ function VoicePanel({
             : <Mic className="h-8 w-8 text-primary" />}
       </button>
       <div className="text-sm text-muted-foreground">
-        {thinking ? "Interviewer is thinking…"
+        {speaking ? "Interviewer is speaking…"
+          : thinking ? "Interviewer is thinking…"
           : recState === "processing" ? "Transcribing…"
           : active ? "Listening — pause when you're done."
           : "Tap to speak."}
       </div>
+
     </div>
   );
 }
