@@ -79,7 +79,7 @@ function Chat() {
   const messagesQ = useQuery({
     queryKey: ["p-messages", sessionId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("messages")
+      const { data, error } = await sb.from("messages")
         .select("id, role, text, audio_url, question_index, created_at")
         .eq("session_id", sessionId).order("created_at", { ascending: true });
       if (error) throw error;
@@ -175,15 +175,15 @@ function Chat() {
       }
       // Upload the audio to storage for the researcher's records
       const path = `${sessionId}/${crypto.randomUUID()}.${mimeRef.current.includes("mp4") ? "m4a" : "webm"}`;
-      const up = await supabase.storage.from("interview-audio").upload(path, blob, {
+      const up = await sb.storage.from("interview-audio").upload(path, blob, {
         contentType: mimeRef.current, upsert: false,
       });
       let audioUrl: string | null = null;
       if (!up.error) {
-        const { data } = supabase.storage.from("interview-audio").getPublicUrl(path);
+        const { data } = sb.storage.from("interview-audio").getPublicUrl(path);
         audioUrl = data.publicUrl;
       }
-      const { error } = await supabase.from("messages").insert({
+      const { error } = await sb.from("messages").insert({
         session_id: sessionId, role: "participant", text: trimmed, audio_url: audioUrl,
       });
       if (error) throw error;
@@ -348,7 +348,7 @@ function Chat() {
     mutationFn: async () => {
       const text = input.trim();
       if (!text) return;
-      const { error } = await supabase.from("messages").insert({
+      const { error } = await sb.from("messages").insert({
         session_id: sessionId, role: "participant", text,
       });
       if (error) throw error;
@@ -363,7 +363,7 @@ function Chat() {
     if (!confirm("Withdraw and request deletion of your responses?")) return;
     try { window.speechSynthesis.cancel(); } catch { /* noop */ }
     if (recState === "recording") stopRecording();
-    await supabase.from("sessions").update({ withdrawn: true, status: "withdrawn" }).eq("id", sessionId);
+    await sb.from("sessions").update({ withdrawn: true, status: "withdrawn" }).eq("id", sessionId);
     await qc.invalidateQueries({ queryKey: ["p-session", sessionId] });
     toast.success("Your responses will be removed.");
   };
@@ -373,7 +373,7 @@ function Chat() {
     try { window.speechSynthesis.cancel(); } catch { /* noop */ }
     if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } ttsAudioRef.current = null; }
     if (recState === "recording") stopRecording();
-    await supabase.from("sessions").update({
+    await sb.from("sessions").update({
       status: "completed",
       completed_at: new Date().toISOString(),
     }).eq("id", sessionId);
