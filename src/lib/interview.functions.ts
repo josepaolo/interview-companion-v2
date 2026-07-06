@@ -56,6 +56,7 @@ function buildSystemPrompt(study: StudyRow, mode: "text" | "audio" | "voice" = "
     study.research_questions ? `Underlying research questions:\n${study.research_questions}` : "",
     study.interview_guide ? `Interview guide:\n${study.interview_guide}` : "",
     `Interview style: ${structureRule}`,
+    voiceRule,
     `Rules:`,
     `- Ask ONE question at a time. Keep questions short and open.`,
     `- Do not lead the participant, do not put words in their mouth.`,
