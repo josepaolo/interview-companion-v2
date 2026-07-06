@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { nextInterviewerTurn } from "@/lib/interview.functions";
 import { transcribeAudio } from "@/lib/audio.functions";
+import { synthesizeSpeech } from "@/lib/tts.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
