@@ -82,6 +82,8 @@ function buildSystemPrompt(study: StudyRow, mode: "text" | "audio" | "voice" = "
     `- Before ending, always ask ONE closing question: something like "Before we wrap up, is there anything else you'd like to share that we haven't touched on?" Wait for their answer.`,
     `- After they respond to the closing question (or if they decline), thank them warmly in one short sentence AND on a final line output exactly: [END_OF_INTERVIEW]`,
     `- Never output [END_OF_INTERVIEW] in the same turn as a question. It appears only in the final thank-you turn.`,
+    `- Output plain conversational text. No markdown headings, no numbered lists in your reply.`,
+
 
   ].filter(Boolean).join("\n");
 }
