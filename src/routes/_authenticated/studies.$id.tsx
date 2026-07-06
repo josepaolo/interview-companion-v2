@@ -185,7 +185,7 @@ function StudyBuilder() {
               <div>
                 <Label className="mb-2 block">How can participants answer?</Label>
                 <div className="flex flex-wrap gap-2">
-                  {[["text", "Text"], ["audio", "Audio"]].map(([v, t]) => {
+                  {[["text", "Text chat"], ["audio", "Audio (record & type)"], ["voice", "Real-time voice"]].map(([v, t]) => {
                     const on = form.participant_modes.includes(v);
                     return (
                       <button key={v} type="button" onClick={() => toggleMode(v)}
@@ -195,7 +195,9 @@ function StudyBuilder() {
                     );
                   })}
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">Audio flow ships in a follow-up. Text works today.</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Enable more than one to let participants choose. Voice mode uses the browser to speak the interviewer's questions and listens for pauses to end each answer.
+                </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-1.5">

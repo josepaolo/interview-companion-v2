@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/studies/$id/sessions/$sess
   component: Transcript,
 });
 
-type Msg = { id: string; role: string; text: string; question_index: number | null; created_at: string };
+type Msg = { id: string; role: string; text: string; audio_url: string | null; question_index: number | null; created_at: string };
 
 function Transcript() {
   const { id, sessionId } = Route.useParams();
@@ -28,7 +28,7 @@ function Transcript() {
     queryKey: ["messages", sessionId],
     queryFn: async () => {
       const { data, error } = await supabase.from("messages")
-        .select("id, role, text, question_index, created_at")
+        .select("id, role, text, audio_url, question_index, created_at")
         .eq("session_id", sessionId).order("created_at", { ascending: true });
       if (error) throw error;
       return data as Msg[];
@@ -82,6 +82,9 @@ function Transcript() {
                 {m.role === "ai" ? "Interviewer" : "Participant"}
               </div>
               <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+              {m.audio_url && (
+                <audio controls src={m.audio_url} className="mt-2 w-full max-w-md" />
+              )}
             </div>
           ))}
           {(!msgsQ.data || msgsQ.data.length === 0) && (
