@@ -510,7 +510,15 @@ function Chat() {
               onStop={stopRecording}
             />
           ) : (
-            <div className="flex items-end gap-2">
+            <div className="space-y-3">
+              {structuredWidget && (
+                <StructuredAnswer
+                  item={structuredWidget}
+                  disabled={thinking || send.isPending || recState !== "idle"}
+                  onSubmit={(text) => submitAnswer(text)}
+                />
+              )}
+              <div className="flex items-end gap-2">
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
