@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 
 const Input = z.object({
   session_id: z.string().uuid(),
+  mode: z.enum(["text", "audio", "voice"]).optional(),
 });
 
 type StudyRow = {
