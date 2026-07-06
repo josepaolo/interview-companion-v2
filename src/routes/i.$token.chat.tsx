@@ -268,30 +268,49 @@ function Chat() {
     }
   }, [recState, cleanupAudio, submitAudio, stopRecording]);
 
-  useEffect(() => () => { cleanupAudio(); try { window.speechSynthesis.cancel(); } catch { /* noop */ } }, [cleanupAudio]);
+  useEffect(() => () => { cleanupAudio(); if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } ttsAudioRef.current = null; } }, [cleanupAudio]);
 
-  // ---- Voice mode: TTS interviewer + auto-record participant ----
+  // ---- Voice mode: high-quality TTS interviewer + auto-record participant ----
   const voiceModeRef = useRef(false);
   voiceModeRef.current = mode === "voice";
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [speaking, setSpeaking] = useState(false);
 
-  const speak = useCallback((text: string): Promise<void> => {
-    return new Promise((resolve) => {
-      if (typeof window === "undefined" || !("speechSynthesis" in window) || !text) return resolve();
+  const speak = useCallback(async (text: string): Promise<void> => {
+    if (!text) return;
+    // Stop any prior playback
+    if (ttsAudioRef.current) {
+      try { ttsAudioRef.current.pause(); } catch { /* noop */ }
+      ttsAudioRef.current = null;
+    }
+    try {
+      setSpeaking(true);
+      const { audio_base64, mime } = await tts({ data: { text } });
+      const audio = new Audio(`data:${mime};base64,${audio_base64}`);
+      ttsAudioRef.current = audio;
+      await new Promise<void>((resolve) => {
+        audio.onended = () => resolve();
+        audio.onerror = () => resolve();
+        audio.play().catch(() => resolve());
+      });
+    } catch (e) {
+      // Fallback to browser synthesis if the gateway fails
       try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.0; u.pitch = 1.0;
-        const voices = window.speechSynthesis.getVoices();
-        const pref = voices.find((v) => /en(-|_)?(US|GB)/i.test(v.lang) && /female|samantha|karen|jenny|serena/i.test(v.name))
-          ?? voices.find((v) => v.lang.startsWith("en"))
-          ?? voices[0];
-        if (pref) u.voice = pref;
-        u.onend = () => resolve();
-        u.onerror = () => resolve();
-        window.speechSynthesis.speak(u);
-      } catch { resolve(); }
-    });
-  }, []);
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          await new Promise<void>((resolve) => {
+            const u = new SpeechSynthesisUtterance(text);
+            u.onend = () => resolve();
+            u.onerror = () => resolve();
+            window.speechSynthesis.speak(u);
+          });
+        }
+      } catch { /* noop */ }
+      console.warn("TTS failed", e);
+    } finally {
+      setSpeaking(false);
+      ttsAudioRef.current = null;
+    }
+  }, [tts]);
 
   // Auto-flow for voice mode: whenever a new AI message arrives, speak it, then auto-record participant answer
   useEffect(() => {
@@ -305,7 +324,7 @@ function Chat() {
     (async () => {
       await speak(last.text);
       // small delay to avoid mic capturing tail of TTS
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 300));
       if (voiceModeRef.current && !ended) {
         startRecording(true);
       }
@@ -315,7 +334,8 @@ function Chat() {
   // Stop speaking / recording when leaving voice mode
   useEffect(() => {
     if (mode !== "voice") {
-      try { window.speechSynthesis.cancel(); } catch { /* noop */ }
+      if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } ttsAudioRef.current = null; }
+      try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
       if (recState === "recording") stopRecording();
     }
   }, [mode, recState, stopRecording]);
