@@ -10,7 +10,7 @@ import { synthesizeSpeech } from "@/lib/tts.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Send, CheckCircle2, Mic, Square, Loader2, Type, AudioLines, Radio } from "lucide-react";
+import { Send, CheckCircle2, Mic, Square, Loader2, Type, AudioLines, Radio, StopCircle } from "lucide-react";
 
 const search = z.object({ s: z.string().uuid() });
 
@@ -364,6 +364,19 @@ function Chat() {
     toast.success("Your responses will be removed.");
   };
 
+  const endInterview = async () => {
+    if (!confirm("End the interview now? Your answers so far will be saved.")) return;
+    try { window.speechSynthesis.cancel(); } catch { /* noop */ }
+    if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } ttsAudioRef.current = null; }
+    if (recState === "recording") stopRecording();
+    await supabase.from("sessions").update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+    }).eq("id", sessionId);
+    await qc.invalidateQueries({ queryKey: ["p-session", sessionId] });
+    toast.success("Interview ended. Thank you.");
+  };
+
   const visible = useMemo(() => (messagesQ.data ?? []).filter((m) => m.role !== "system"), [messagesQ.data]);
   const askedCount = visible.filter((m) => m.role === "ai").length;
   const maxQ = studyQ.data?.max_questions ?? 10;
@@ -420,6 +433,9 @@ function Chat() {
             {studyQ.data?.allow_withdrawal && (
               <Button variant="ghost" size="sm" onClick={withdraw}>Withdraw</Button>
             )}
+            <Button variant="outline" size="sm" onClick={endInterview}>
+              <StopCircle className="mr-1 h-3.5 w-3.5" /> End interview
+            </Button>
           </div>
         </div>
         {showModeSwitcher && (

@@ -26,7 +26,7 @@ export const synthesizeSpeech = createServerFn({ method: "POST" })
         response_format: "mp3",
         instructions:
           data.instructions ??
-          "Warm, calm, curious academic interviewer. Speak naturally with soft pacing, gentle prosody, and brief, human pauses between clauses. Sound thoughtful, never robotic or announcer-like. Keep an even, unhurried tempo.",
+          "Speak in a natural Singaporean English accent — educated, professional, and clearly intelligible to international listeners. Use proper Standard English grammar and vocabulary (absolutely no Singlish particles like 'lah', 'lor', 'leh', 'meh', or 'can can'). Keep the local rhythm and prosody: fairly even stress across syllables, crisp consonants (clear final 't', 'd', 'k'), lightly clipped vowels, gentle rising-then-level intonation on statements, and a modest, unhurried pace. Warm, calm, curious academic interviewer — thoughtful and human, with brief natural pauses between clauses. Never robotic or announcer-like.",
       }),
     });
 

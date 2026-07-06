@@ -16,8 +16,9 @@ import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft, Copy, Trash2, ExternalLink, Save, Users as UsersIcon,
-  Radio, Check, RefreshCcw,
+  Radio, Check, RefreshCcw, Upload,
 } from "lucide-react";
+import { useRef } from "react";
 
 export const Route = createFileRoute("/_authenticated/studies/$id")({
   component: StudyBuilder,
@@ -146,9 +147,19 @@ function StudyBuilder() {
                   placeholder="What are the underlying research questions? One per line." rows={4} />
               </div>
               <div className="space-y-1.5">
-                <Label>Interview guide</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Interview guide</Label>
+                  <GuideUpload
+                    onLoaded={(text, append) =>
+                      patch("interview_guide", append && form.interview_guide ? `${form.interview_guide}\n\n${text}` : text)
+                    }
+                  />
+                </div>
                 <Textarea value={form.interview_guide} onChange={(e) => patch("interview_guide", e.target.value)}
-                  placeholder={"Topics or questions the AI should cover.\nExample:\n1. Warm-up: tell me about your role.\n2. Walk me through a recent challenge.\n3. How did you decide what to do?"} rows={8} />
+                  placeholder={"Topics or questions the AI should cover.\nExample:\n1. Warm-up: tell me about your role.\n2. Walk me through a recent challenge.\n3. How did you decide what to do?\n\nOr upload a .txt / .md file with your guide."} rows={8} />
+                <p className="text-xs text-muted-foreground">
+                  Upload accepts plain text (.txt, .md). For PDF or Word documents, copy the questions into a .txt file first.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -374,5 +385,37 @@ function ToggleRow({ label, description, checked, onChange }: {
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
+  );
+}
+
+function GuideUpload({ onLoaded }: { onLoaded: (text: string, append: boolean) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 500_000) { toast.error("File too large (max 500KB)."); return; }
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".txt") && !name.endsWith(".md") && file.type && !file.type.startsWith("text/")) {
+      toast.error("Please upload a .txt or .md file.");
+      return;
+    }
+    try {
+      const text = (await file.text()).trim();
+      if (!text) { toast.error("File is empty."); return; }
+      const append = confirm("Append to existing guide? Click Cancel to replace it.");
+      onLoaded(text, append);
+      toast.success("Guide loaded — remember to Save changes.");
+    } catch {
+      toast.error("Could not read file.");
+    }
+  };
+  return (
+    <>
+      <input ref={inputRef} type="file" accept=".txt,.md,text/plain,text/markdown" className="hidden" onChange={handle} />
+      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+        <Upload className="mr-2 h-3.5 w-3.5" /> Upload file
+      </Button>
+    </>
   );
 }
