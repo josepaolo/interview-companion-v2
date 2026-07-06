@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 
 const Input = z.object({
   session_id: z.string().uuid(),
+  session_token: z.string().uuid(),
   mode: z.enum(["text", "audio", "voice"]).optional(),
 });
 
@@ -19,11 +20,14 @@ type StudyRow = {
 type MsgRow = { role: string; text: string; question_index: number | null };
 type SessRow = { id: string; study_id: string; current_question_index: number; status: string };
 
-function serverSupabase() {
+function serverSupabase(sessionToken: string) {
   return createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_PUBLISHABLE_KEY!,
-    { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } }
+    {
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+      global: { headers: { "x-session-token": sessionToken } },
+    }
   );
 }
 
@@ -73,7 +77,7 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
-    const sb = serverSupabase();
+    const sb = serverSupabase(data.session_token);
 
     const { data: sess, error: se } = await sb.from("sessions")
       .select("id, study_id, current_question_index, status")

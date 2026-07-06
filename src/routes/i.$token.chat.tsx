@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { participantClient } from "@/lib/participant-client";
 import { useServerFn } from "@tanstack/react-start";
 import { nextInterviewerTurn } from "@/lib/interview.functions";
 import { transcribeAudio } from "@/lib/audio.functions";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Send, CheckCircle2, Mic, Square, Loader2, Type, AudioLines, Radio, StopCircle } from "lucide-react";
 
-const search = z.object({ s: z.string().uuid() });
+const search = z.object({ s: z.string().uuid(), t: z.string().uuid() });
 
 export const Route = createFileRoute("/i/$token/chat")({
   ssr: false,
@@ -46,16 +47,19 @@ async function blobToBase64(blob: Blob): Promise<string> {
 
 function Chat() {
   const { token } = Route.useParams();
-  const { s: sessionId } = Route.useSearch();
+  const { s: sessionId, t: sessionToken } = Route.useSearch();
   const qc = useQueryClient();
   const nextTurn = useServerFn(nextInterviewerTurn);
   const transcribe = useServerFn(transcribeAudio);
   const tts = useServerFn(synthesizeSpeech);
 
+  // Token-scoped Supabase client; RLS uses the x-session-token header it sends.
+  const sb = useMemo(() => participantClient(sessionToken), [sessionToken]);
+
   const sessionQ = useQuery({
     queryKey: ["p-session", sessionId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sessions")
+      const { data, error } = await sb.from("sessions")
         .select("id, study_id, status, withdrawn, current_question_index, mode").eq("id", sessionId).single();
       if (error) throw error; return data;
     },
@@ -75,7 +79,7 @@ function Chat() {
   const messagesQ = useQuery({
     queryKey: ["p-messages", sessionId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("messages")
+      const { data, error } = await sb.from("messages")
         .select("id, role, text, audio_url, question_index, created_at")
         .eq("session_id", sessionId).order("created_at", { ascending: true });
       if (error) throw error;
@@ -109,7 +113,7 @@ function Chat() {
   const askAI = useCallback(async () => {
     setThinking(true);
     try {
-      await nextTurn({ data: { session_id: sessionId, mode: modeRef.current } });
+      await nextTurn({ data: { session_id: sessionId, session_token: sessionToken, mode: modeRef.current } });
       await qc.invalidateQueries({ queryKey: ["p-messages", sessionId] });
       await qc.invalidateQueries({ queryKey: ["p-session", sessionId] });
     } catch (e) {
@@ -171,15 +175,15 @@ function Chat() {
       }
       // Upload the audio to storage for the researcher's records
       const path = `${sessionId}/${crypto.randomUUID()}.${mimeRef.current.includes("mp4") ? "m4a" : "webm"}`;
-      const up = await supabase.storage.from("interview-audio").upload(path, blob, {
+      const up = await sb.storage.from("interview-audio").upload(path, blob, {
         contentType: mimeRef.current, upsert: false,
       });
       let audioUrl: string | null = null;
       if (!up.error) {
-        const { data } = supabase.storage.from("interview-audio").getPublicUrl(path);
+        const { data } = sb.storage.from("interview-audio").getPublicUrl(path);
         audioUrl = data.publicUrl;
       }
-      const { error } = await supabase.from("messages").insert({
+      const { error } = await sb.from("messages").insert({
         session_id: sessionId, role: "participant", text: trimmed, audio_url: audioUrl,
       });
       if (error) throw error;
@@ -344,7 +348,7 @@ function Chat() {
     mutationFn: async () => {
       const text = input.trim();
       if (!text) return;
-      const { error } = await supabase.from("messages").insert({
+      const { error } = await sb.from("messages").insert({
         session_id: sessionId, role: "participant", text,
       });
       if (error) throw error;
@@ -359,7 +363,7 @@ function Chat() {
     if (!confirm("Withdraw and request deletion of your responses?")) return;
     try { window.speechSynthesis.cancel(); } catch { /* noop */ }
     if (recState === "recording") stopRecording();
-    await supabase.from("sessions").update({ withdrawn: true, status: "withdrawn" }).eq("id", sessionId);
+    await sb.from("sessions").update({ withdrawn: true, status: "withdrawn" }).eq("id", sessionId);
     await qc.invalidateQueries({ queryKey: ["p-session", sessionId] });
     toast.success("Your responses will be removed.");
   };
@@ -369,7 +373,7 @@ function Chat() {
     try { window.speechSynthesis.cancel(); } catch { /* noop */ }
     if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } ttsAudioRef.current = null; }
     if (recState === "recording") stopRecording();
-    await supabase.from("sessions").update({
+    await sb.from("sessions").update({
       status: "completed",
       completed_at: new Date().toISOString(),
     }).eq("id", sessionId);
