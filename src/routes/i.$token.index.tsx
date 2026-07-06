@@ -150,7 +150,7 @@ function ParticipantIntro() {
             )}
 
             <Button className="w-full" size="lg" onClick={() => start.mutate()}
-              disabled={start.isPending || (study.consent_enabled && !consent) || (mode === "audio")}>
+              disabled={start.isPending || (study.consent_enabled && !consent)}>
               {start.isPending ? "Starting…" : "Begin interview"}
             </Button>
           </CardContent>
