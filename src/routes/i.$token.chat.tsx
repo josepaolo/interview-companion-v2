@@ -344,18 +344,20 @@ function Chat() {
     }
   }, [mode, recState, stopRecording]);
 
+  const submitAnswer = useCallback(async (text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    const { error } = await sb.from("messages").insert({
+      session_id: sessionId, role: "participant", text: t,
+    });
+    if (error) { toast.error(error.message); return; }
+    setInput("");
+    await qc.invalidateQueries({ queryKey: ["p-messages", sessionId] });
+    await askAI();
+  }, [sb, sessionId, qc, askAI]);
+
   const send = useMutation({
-    mutationFn: async () => {
-      const text = input.trim();
-      if (!text) return;
-      const { error } = await sb.from("messages").insert({
-        session_id: sessionId, role: "participant", text,
-      });
-      if (error) throw error;
-      setInput("");
-      await qc.invalidateQueries({ queryKey: ["p-messages", sessionId] });
-      await askAI();
-    },
+    mutationFn: async () => { await submitAnswer(input); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not send"),
   });
 
