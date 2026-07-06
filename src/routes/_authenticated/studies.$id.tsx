@@ -189,6 +189,7 @@ function StudyBuilder() {
                   { v: "structured", t: "Structured", d: "AI asks guide questions verbatim, in order." },
                   { v: "semi_structured", t: "Semi-structured", d: "AI follows the guide, adds adaptive follow-up probes." },
                   { v: "unstructured", t: "Unstructured", d: "AI explores research questions conversationally, no fixed script." },
+                  { v: "hybrid_survey", t: "Hybrid survey-interview", d: "Fixed survey questions interspersed with semi-structured AI probes, in the order you choose." },
                 ].map((o) => (
                   <label key={o.v} className="flex items-start gap-3 rounded-md border border-border p-4 hover:bg-accent/40">
                     <RadioGroupItem value={o.v} id={o.v} className="mt-1" />
@@ -201,6 +202,13 @@ function StudyBuilder() {
               </RadioGroup>
             </CardContent>
           </Card>
+
+          {form.structure_type === "hybrid_survey" && (
+            <SurveyItemsEditor
+              items={form.survey_items ?? []}
+              onChange={(items) => patch("survey_items", items)}
+            />
+          )}
 
           <Card>
             <CardHeader>
