@@ -75,7 +75,7 @@ function StudyBuilder() {
 
   const save = useMutation({
     mutationFn: async (patch: Partial<Study>) => {
-      const { error } = await supabase.from("studies").update(patch).eq("id", id);
+      const { error } = await supabase.from("studies").update(patch as never).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
