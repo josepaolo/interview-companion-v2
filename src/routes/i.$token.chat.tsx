@@ -550,6 +550,7 @@ function Chat() {
                 disabled={!input.trim() || send.isPending || thinking || recState !== "idle"} size="lg">
                 <Send className="h-4 w-4" />
               </Button>
+              </div>
             </div>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
