@@ -91,12 +91,15 @@ function Chat() {
 
   const allowedModes = (studyQ.data?.participant_modes ?? ["text"]) as UIMode[];
   const [mode, setMode] = useState<UIMode>("text");
+  const modeInitedRef = useRef(false);
   useEffect(() => {
-    // Initialise mode from session mode when it arrives
+    if (modeInitedRef.current) return;
+    if (!studyQ.data) return;
     const sm = (sessionQ.data?.mode as UIMode | undefined) ?? "text";
     if (allowedModes.includes(sm)) setMode(sm);
     else if (allowedModes.length > 0) setMode(allowedModes[0]);
-  }, [sessionQ.data?.mode, studyQ.data?.participant_modes]);
+    modeInitedRef.current = true;
+  }, [sessionQ.data?.mode, studyQ.data, allowedModes]);
 
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
