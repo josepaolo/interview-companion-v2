@@ -104,10 +104,12 @@ function Chat() {
 
   // ---- AI turn ----
   const spokenIdsRef = useRef<Set<string>>(new Set());
+  const modeRef = useRef<UIMode>("text");
+  modeRef.current = mode;
   const askAI = useCallback(async () => {
     setThinking(true);
     try {
-      await nextTurn({ data: { session_id: sessionId } });
+      await nextTurn({ data: { session_id: sessionId, mode: modeRef.current } });
       await qc.invalidateQueries({ queryKey: ["p-messages", sessionId] });
       await qc.invalidateQueries({ queryKey: ["p-session", sessionId] });
     } catch (e) {
