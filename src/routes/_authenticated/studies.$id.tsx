@@ -16,8 +16,9 @@ import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft, Copy, Trash2, ExternalLink, Save, Users as UsersIcon,
-  Radio, Check, RefreshCcw,
+  Radio, Check, RefreshCcw, Upload,
 } from "lucide-react";
+import { useRef } from "react";
 
 export const Route = createFileRoute("/_authenticated/studies/$id")({
   component: StudyBuilder,
