@@ -54,12 +54,12 @@ function ParticipantIntro() {
         participant_email: study.collect_identity ? email || null : null,
         consent_given: study.consent_enabled ? consent : true,
         consent_text_snapshot: study.consent_enabled ? study.consent_text : null,
-      }).select("id").single();
+      }).select("id, access_token").single();
       if (error) throw error;
-      return data.id as string;
+      return { id: data.id as string, token: data.access_token as string };
     },
-    onSuccess: (sessionId) => {
-      navigate({ to: "/i/$token/chat", params: { token }, search: { s: sessionId } });
+    onSuccess: ({ id, token }) => {
+      navigate({ to: "/i/$token/chat", params: { token }, search: { s: id, t: token } });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not start interview"),
   });
