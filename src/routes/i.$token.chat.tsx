@@ -409,6 +409,24 @@ function Chat() {
     ? inferredItem
     : null;
 
+  // Auto-switch mode in hybrid studies:
+  //   survey items → text (or audio) — participant types / uses mic
+  //   probe items and closing question → voice (spoken back and forth)
+  const currentItemKind: "survey" | "probe" | null = isHybrid && lastAIIdx > 0
+    ? (lastAIIdx <= surveyItems.length ? (surveyItems[lastAIIdx - 1]?.kind ?? "probe") : "probe")
+    : null;
+  useEffect(() => {
+    if (!isHybrid || !currentItemKind || allowedModes.length === 0) return;
+    const preference: UIMode[] = currentItemKind === "survey"
+      ? ["text", "audio", "voice"]
+      : ["voice", "audio", "text"];
+    const next = preference.find((m) => allowedModes.includes(m));
+    if (next && next !== mode) setMode(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHybrid, currentItemKind, lastAI?.id, allowedModes.join(",")]);
+
+
+
   if (ended) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-6">
