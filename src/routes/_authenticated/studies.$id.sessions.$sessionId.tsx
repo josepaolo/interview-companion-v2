@@ -82,6 +82,9 @@ function Transcript() {
                 {m.role === "ai" ? "Interviewer" : "Participant"}
               </div>
               <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+              {m.audio_url && (
+                <audio controls src={m.audio_url} className="mt-2 w-full max-w-md" />
+              )}
             </div>
           ))}
           {(!msgsQ.data || msgsQ.data.length === 0) && (
