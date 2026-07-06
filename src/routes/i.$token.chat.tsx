@@ -47,16 +47,19 @@ async function blobToBase64(blob: Blob): Promise<string> {
 
 function Chat() {
   const { token } = Route.useParams();
-  const { s: sessionId } = Route.useSearch();
+  const { s: sessionId, t: sessionToken } = Route.useSearch();
   const qc = useQueryClient();
   const nextTurn = useServerFn(nextInterviewerTurn);
   const transcribe = useServerFn(transcribeAudio);
   const tts = useServerFn(synthesizeSpeech);
 
+  // Token-scoped Supabase client; RLS uses the x-session-token header it sends.
+  const sb = useMemo(() => participantClient(sessionToken), [sessionToken]);
+
   const sessionQ = useQuery({
     queryKey: ["p-session", sessionId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sessions")
+      const { data, error } = await sb.from("sessions")
         .select("id, study_id, status, withdrawn, current_question_index, mode").eq("id", sessionId).single();
       if (error) throw error; return data;
     },
