@@ -520,23 +520,24 @@ function Chat() {
 }
 
 function VoicePanel({
-  recState, thinking, level, onStart, onStop,
+  recState, thinking, speaking, level, onStart, onStop,
 }: {
   recState: "idle" | "recording" | "processing";
-  thinking: boolean; level: number;
+  thinking: boolean; speaking: boolean; level: number;
   onStart: () => void; onStop: () => void;
 }) {
   const scale = 1 + Math.min(0.6, level * 1.2);
   const active = recState === "recording";
+  const busy = thinking || speaking || recState === "processing";
   return (
     <div className="flex flex-col items-center gap-3 py-4">
       <button
         type="button"
         onClick={active ? onStop : onStart}
-        disabled={thinking || recState === "processing"}
+        disabled={busy}
         className={`relative flex h-20 w-20 items-center justify-center rounded-full border-2 transition
           ${active ? "border-destructive bg-destructive/10" : "border-primary bg-primary/10 hover:bg-primary/20"}
-          ${(thinking || recState === "processing") ? "opacity-60" : ""}`}
+          ${busy ? "opacity-60" : ""}`}
         aria-label={active ? "Stop recording" : "Start recording"}
       >
         {active && (
@@ -553,11 +554,13 @@ function VoicePanel({
             : <Mic className="h-8 w-8 text-primary" />}
       </button>
       <div className="text-sm text-muted-foreground">
-        {thinking ? "Interviewer is thinking…"
+        {speaking ? "Interviewer is speaking…"
+          : thinking ? "Interviewer is thinking…"
           : recState === "processing" ? "Transcribing…"
           : active ? "Listening — pause when you're done."
           : "Tap to speak."}
       </div>
+
     </div>
   );
 }
