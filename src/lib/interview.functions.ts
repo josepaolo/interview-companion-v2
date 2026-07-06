@@ -20,11 +20,14 @@ type StudyRow = {
 type MsgRow = { role: string; text: string; question_index: number | null };
 type SessRow = { id: string; study_id: string; current_question_index: number; status: string };
 
-function serverSupabase() {
+function serverSupabase(sessionToken: string) {
   return createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_PUBLISHABLE_KEY!,
-    { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } }
+    {
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+      global: { headers: { "x-session-token": sessionToken } },
+    }
   );
 }
 
