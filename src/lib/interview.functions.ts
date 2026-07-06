@@ -98,7 +98,7 @@ export const nextInterviewerTurn = createServerFn({ method: "POST" })
     }));
 
     const messages = [
-      { role: "system" as const, content: buildSystemPrompt(study as StudyRow) },
+      { role: "system" as const, content: buildSystemPrompt(study as StudyRow, data.mode ?? "text") },
       ...history,
     ];
 
